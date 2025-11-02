@@ -1,194 +1,158 @@
-# Hello World Example
+# Hello World Conflict Resolution Example
 
-This is a simple example demonstrating Alphanso's pre-actions and validators system without any external dependencies.
+This example demonstrates how Alphanso uses Claude Code Agent SDK to automatically resolve git merge conflicts.
 
 ## What This Example Does
 
-### Pre-Actions (Setup Phase)
-1. **Initializes environment** - Prints a setup message
-2. **Creates directories** - Creates an `output/` directory
-3. **Writes a greeting** - Creates a file with current date and time using environment variables
-4. **Displays the greeting** - Shows the content of the created file
+1. **Setup Phase**: Creates two git repositories (upstream and fork) with conflicting changes
+2. **Pre-Actions**: Fetches upstream and attempts to merge (creates conflict)
+3. **Validation**: Detects merge conflict using GitConflictValidator
+4. **AI Fix**: Claude investigates the conflict and resolves it using SDK tools
+5. **Re-Validation**: Confirms the conflict is resolved
 
-### Validators (Verification Phase)
-1. **Check Greeting File Exists** - Verifies the greeting file was created
-2. **Verify Greeting Content** - Ensures the file contains "Hello"
-3. **Check Directory Structure** - Confirms the output directory exists
-4. **Git Conflict Check** - Checks for any Git merge conflicts
+## Directory Structure
 
-## Running the Example
+```
+hello-world-conflict/
+├── config.yaml              # Convergence configuration
+├── prompts/
+│   └── conflict-resolver.txt  # Custom system prompt
+├── setup.sh                 # Creates git conflict scenario
+├── run.sh                   # Runs the example
+├── README.md                # This file
+└── .gitignore               # Ignore git-repos/
+```
 
-### Using the CLI (Recommended):
+## How to Run
 
 ```bash
-# From the project root
-uv run alphanso run --config examples/hello-world/config.yaml
-
-# Or from this directory
-cd examples/hello-world
-uv run alphanso run --config config.yaml
+# From this directory
+./run.sh
 ```
 
-### Using the Python API:
+Or step-by-step:
 
-```python
-from alphanso.api import run_convergence
-from alphanso.config.schema import ConvergenceConfig, PreActionConfig, ValidatorConfig
+```bash
+# 1. Create git repositories with conflict
+./setup.sh
 
-# Create config object (however you want - from YAML, database, hardcoded, etc.)
-config = ConvergenceConfig(
-    name="Hello World Example",
-    max_attempts=10,
-    pre_actions=[
-        PreActionConfig(command="mkdir -p output", description="Create output directory"),
-        PreActionConfig(command="echo 'Hello World' > output/greeting.txt", description="Write greeting")
-    ],
-    validators=[
-        ValidatorConfig(type="command", name="Check File", command="test -f output/greeting.txt")
-    ]
-)
-
-# Run the convergence workflow
-result = run_convergence(config=config)
-
-# Check results
-if result["success"]:
-    print("✅ All steps succeeded!")
-else:
-    print("❌ Some steps failed")
+# 2. Run convergence loop from fork directory
+cd git-repos/fork
+alphanso run --config ../../config.yaml --verbose
 ```
 
-Both approaches show the complete LangGraph workflow execution
+## Expected Behavior
 
-## Expected Output
+### Attempt 1: Detect Conflict
 
 ```
-Loading configuration from: /Users/.../examples/hello-world/config.yaml
-
-======================================================================
 NODE: pre_actions
-======================================================================
-Running pre-actions to set up environment...
+[1/2] Fetch upstream changes → ✅ Success
+[2/2] Attempt merge (will conflict) → ✅ Success
 
-[1/5] Initialize environment
-     ✅ Success
-     │ Step 1: Setting up environment...
-
-[2/5] Create directories
-     ✅ Success
-     │ Step 2: Creating directories...
-
-[3/5] Create output directory
-     ✅ Success
-
-[4/5] Write greeting file
-     ✅ Success
-
-[5/5] Display greeting
-     ✅ Success
-     │ Hello! Current time is 2025-11-02 08:05:35
-
-======================================================================
 NODE: validate
-======================================================================
-Running validators to check current state...
+[1/1] Git Conflict Check → ❌ Failed
 
-[1/4] Check Greeting File Exists
-     ✅ Success (0.01s)
-
-[2/4] Verify Greeting Content
-     ✅ Success (0.01s)
-
-[3/4] Check Directory Structure
-     ✅ Success (0.01s)
-
-[4/4] Git Conflict Check
-     ✅ Success (0.00s)
-
-✅ All validators PASSED
-
-======================================================================
 NODE: decide
-======================================================================
-Making decision (placeholder - STEP 3 will implement retry logic)...
-✅ Decision: END (no retry loop yet)
-======================================================================
-
-======================================================================
-Validation Results:
-======================================================================
-
-✅ SUCCESS: Check Greeting File Exists (0.01s)
-
-✅ SUCCESS: Verify Greeting Content (0.01s)
-
-✅ SUCCESS: Check Directory Structure (0.01s)
-
-✅ SUCCESS: Git Conflict Check (0.00s)
-
-======================================================================
-Summary:
-======================================================================
-Graph structure: START → pre_actions → validate → decide → END
-Pre-actions completed: True
-Validators run: 4
-Failed validators: 0
-Validation status: ✅ PASSED
-Working directory: /Users/.../examples/hello-world
-
-✅ All steps completed successfully!
+❌ Validation failed (attempt 1/5)
+Decision: RETRY (increment attempt and re-validate)
 ```
 
-**Key Output**: Notice the LangGraph nodes executing in sequence:
-- **NODE: pre_actions** - Sets up environment (5 pre-actions)
-- **NODE: validate** - Runs validators (4 validators checking conditions)
-- **NODE: decide** - Makes decision (placeholder in STEP 2)
-
-This demonstrates the complete state machine workflow!
-
-## What You'll Learn
-
-This example demonstrates:
-
-- **LangGraph State Machine**: See the complete graph workflow with all nodes executing
-- **Graph Structure**: START → pre_actions → validate → decide → END
-- **Node Execution**: Watch each node execute in sequence with state updates
-- **Configuration Loading**: Loading YAML configuration files
-- **Pre-Actions**: Running setup commands before the main convergence loop
-- **Validators**: Checking conditions (file existence, content verification, directory structure, Git conflicts)
-- **Variable Substitution**: Using `${CURRENT_TIME}` to inject environment variables dynamically
-- **State Management**: How state flows through the graph with partial updates
-- **Result Handling**: Checking success/failure of each action and validator
-
-**Key Insights**:
-- Uses `create_convergence_graph()` to build the LangGraph state machine
-- Nodes print their execution showing the graph flow visually
-- Each node (pre_actions, validate, decide) executes and updates state
-- Validators check conditions WITHOUT fixing them (framework-run checks)
-- Shows timing for each validator execution
-- Displays detailed results at the end with summary statistics
-- Shows the complete workflow from start to finish with full visibility
-
-## Next Steps
-
-After understanding this example, you can:
-
-1. Modify `config.yaml` to add your own pre-actions
-2. Add custom validators to check different conditions
-3. Try different shell commands (make, test commands, etc.)
-4. Use more complex variable substitution
-5. Experiment with validator timeout settings
-6. Explore the other examples in the `examples/` directory
-
-## Files Created
-
-After running this example, you'll find:
+### Attempt 2: AI Resolves Conflict
 
 ```
-examples/hello-world/
-├── output/
-│   └── greeting.txt    # Contains "Hello! Current time is 2025-01-15 14:30:00"
-├── config.yaml
-├── run.py
-└── README.md
+NODE: ai_fix
+Invoking Claude Agent SDK to investigate and fix failures...
+
+Claude investigates:
+- Uses Bash tool: git status
+- Uses Read tool: README.md (sees conflict markers)
+- Uses Bash tool: git diff
+
+Claude resolves:
+- Uses Edit tool: removes conflict markers, merges changes
+- Uses Bash tool: git add README.md
+- Uses Bash tool: git commit -m "Merge v2.0.0: integrate upstream changes"
+
+✅ Claude used 7 SDK tools
+
+NODE: validate
+[1/1] Git Conflict Check → ✅ Success
+
+NODE: decide
+✅ All validators passed
+Decision: END with success
 ```
+
+### Final Result
+
+```
+✅ All validators PASSED
+Completed in 2 attempts
+Total duration: ~30 seconds
+```
+
+## The Conflict Scenario
+
+**Upstream (v2.0.0)**:
+```markdown
+# Hello World Project
+
+Version: 2.0.0
+
+## Features
+- Feature A (enhanced)
+- Feature B (enhanced)
+- Feature C (new)
+```
+
+**Fork (modified)**:
+```markdown
+# Hello World Project - Forked Edition
+
+Version: 1.0.0-fork
+
+## Features
+- Feature A (fork-specific)
+- Feature B (fork-specific)
+- Feature D (fork-only)
+```
+
+**Claude's Resolution** (example):
+```markdown
+# Hello World Project - Forked Edition
+
+Version: 2.0.0-fork
+
+## Features
+- Feature A (enhanced, fork-specific)
+- Feature B (enhanced, fork-specific)
+- Feature C (new)
+- Feature D (fork-only)
+```
+
+## Custom System Prompt
+
+This example uses a custom system prompt (`prompts/conflict-resolver.txt`) that defines Claude's role as a "git merge conflict resolution assistant". This prompt is loaded automatically by the configuration system.
+
+## Key Features Demonstrated
+
+- ✅ Custom system prompts via `system_prompt_file`
+- ✅ Claude SDK's built-in tools (Bash, Read, Edit)
+- ✅ GitConflictValidator integration
+- ✅ Pre-actions for setup
+- ✅ Convergence loop with retry
+- ✅ Local git repository management
+
+## Requirements
+
+- Python 3.11+
+- Alphanso installed (`pip install -e .` from project root)
+- `ANTHROPIC_API_KEY` environment variable set
+- Git installed
+
+## Notes
+
+- The `git-repos/` directory is created by `setup.sh` and gitignored
+- The example is self-contained - no external dependencies needed
+- You can inspect the git history after running: `cd git-repos/fork && git log --oneline`

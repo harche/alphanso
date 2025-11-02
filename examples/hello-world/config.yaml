@@ -1,51 +1,33 @@
-name: "Hello World Example"
-max_attempts: 10
+name: "Git Merge Conflict Resolution"
+max_attempts: 5
 
+# Working directory - example directory (pre-actions run here, then agent works in git-repos/fork)
+working_directory: "."
+
+# Pre-actions - setup repos and create conflict
+pre_actions:
+  - command: "bash setup.sh"
+    description: "Setup git repositories with conflict"
+
+  - command: "cd git-repos/fork && git fetch upstream"
+    description: "Fetch upstream changes"
+
+  - command: "cd git-repos/fork && git merge v2.0.0 || true"
+    description: "Attempt merge (will conflict)"
+
+# Validators - check for conflicts in fork directory
+validators:
+  - type: command
+    name: "Git Conflict Check"
+    command: "cd git-repos/fork && git diff --check"
+    timeout: 10
+
+# Agent configuration
 agent:
   type: "claude-agent-sdk"
   claude:
-    model: "claude-sonnet-4-5-20250929"
-
-# Pre-actions run once before the convergence loop
-pre_actions:
-  - command: "echo 'Step 1: Setting up environment...'"
-    description: "Initialize environment"
-
-  - command: "echo 'Step 2: Creating directories...'"
-    description: "Create directories"
-
-  - command: "mkdir -p output"
-    description: "Create output directory"
-
-  - command: "echo 'Hello! Current time is ${CURRENT_TIME}' > output/greeting.txt"
-    description: "Write greeting file"
-
-  - command: "cat output/greeting.txt"
-    description: "Display greeting"
-
-# Validators run in the convergence loop to check conditions
-validators:
-  - type: "command"
-    name: "Check Greeting File Exists"
-    command: "test -f output/greeting.txt"
-    timeout: 5.0
-
-  - type: "command"
-    name: "Verify Greeting Content"
-    command: "grep -q 'Hello' output/greeting.txt"
-    timeout: 5.0
-
-  - type: "command"
-    name: "Check Directory Structure"
-    command: "test -d output"
-    timeout: 5.0
-
-  - type: "git-conflict"
-    name: "Git Conflict Check"
-    timeout: 10.0
+    model: "claude-sonnet-4-5@20250929"
+    system_prompt_file: "prompts/conflict-resolver.txt"
 
 retry_strategy:
-  type: "hybrid"
-  max_tracked_failures: 10
-
-working_directory: "."
+  type: hybrid

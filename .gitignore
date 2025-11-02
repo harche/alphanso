@@ -148,3 +148,4 @@ cython_debug/
 # uv
 .uv/
 uv.lock
+output/

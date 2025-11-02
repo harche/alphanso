@@ -1,2 +1,2 @@
-# Ignore output directory created by the example
-output/
+# Ignore generated git repositories
+git-repos/
