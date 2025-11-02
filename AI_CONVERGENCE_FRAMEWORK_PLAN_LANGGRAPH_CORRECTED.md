@@ -1211,19 +1211,16 @@ class ConvergenceAgent:
     def __init__(
         self,
         model: str = "claude-sonnet-4-5-20250929",
-        max_tokens: int = 8192,
         working_directory: Optional[str] = None,
     ):
         """Initialize Claude Agent SDK client.
 
         Args:
             model: Claude model to use
-            max_tokens: Max tokens for responses
             working_directory: Working directory for commands (optional)
         """
         self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         self.model = model
-        self.max_tokens = max_tokens
         self.working_directory = working_directory or os.getcwd()
 
     async def invoke(
@@ -1252,7 +1249,6 @@ class ConvergenceAgent:
         # SDK automatically provides whatever tools it wants
         response = await self.client.messages.create_async(
             model=self.model,
-            max_tokens=self.max_tokens,
             system=system_prompt,
             messages=messages,
             tool_choice={"type": "auto"},  # Let SDK use whatever tools it provides
@@ -1364,7 +1360,6 @@ from pydantic import BaseModel, Field
 class ClaudeAgentConfig(BaseModel):
     """Configuration for Claude Agent SDK."""
     model: str = Field(default="claude-sonnet-4-5-20250929")
-    max_tokens: int = Field(default=8192)
     system_prompt: str | None = Field(
         default=None,
         description="Custom system prompt defining agent's role and task"
@@ -1423,7 +1418,6 @@ agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
-    max_tokens: 8192
     system_prompt_file: "prompts/kubernetes-rebase.txt"  # File reference
 ```
 
@@ -1437,7 +1431,6 @@ config = ConvergenceConfig(
     max_attempts=10,
     agent=ClaudeAgentConfig(
         model="claude-sonnet-4-5-20250929",
-        max_tokens=8192,
         system_prompt="""You are a Kubernetes rebasing agent.
 
 Your task is to help rebase the OpenShift fork of Kubernetes with upstream changes.
@@ -1556,7 +1549,6 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
     # Initialize agent (from STEP 4)
     agent = ConvergenceAgent(
         model=agent_config.get("model", "claude-sonnet-4-5-20250929"),
-        max_tokens=agent_config.get("max_tokens", 8192),
         working_directory=state.get("working_directory"),
     )
 
@@ -1711,7 +1703,6 @@ agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
-    max_tokens: 8192
     system_prompt_file: "prompts/kubernetes-rebase.txt"  # Custom agent role/task
 
 retry_strategy:
@@ -2312,10 +2303,6 @@ alphanso init --template simple > my-config.yaml
 name: "Go Dependency Upgrade"
 max_attempts: 5
 
-agent:
-  model: "claude-sonnet-4-5-20250929"
-  max_tokens: 4096
-
 # Pre-actions - upgrade the dependency
 pre_actions:
   - command: "go get -u github.com/some/module@v2.0.0"
@@ -2344,7 +2331,6 @@ agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
-    max_tokens: 4096
 
 retry_strategy:
   type: hybrid
@@ -2413,10 +2399,6 @@ name: "Kubernetes Rebase for OpenShift"
 max_attempts: 100
 timeout: 7200  # 2 hours
 
-agent:
-  model: "claude-sonnet-4-5-20250929"
-  max_tokens: 8192
-
 # Pre-actions - Run ONCE before convergence loop
 pre_actions:
   - command: "git fetch upstream"
@@ -2465,7 +2447,6 @@ agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
-    max_tokens: 8192
     system_prompt_file: "prompts/kubernetes-rebase.txt"  # Define agent role/task
 
 retry_strategy:
