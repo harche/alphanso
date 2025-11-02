@@ -251,16 +251,21 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
 def decide_node(state: ConvergenceState) -> dict[str, Any]:
     """Decide whether to continue, retry, or end.
 
-    This is a placeholder for STEP 1. In STEP 3, this will implement
-    conditional logic to determine the next step based on validation results.
-
-    For now, it returns an empty dict (no state updates).
+    This node is a pass-through for STEP 3. The actual routing decision
+    is made by the should_continue() edge function based on validation
+    results and attempt count.
 
     Args:
         state: Current convergence state
 
     Returns:
-        Empty dict (no updates for STEP 1)
+        Empty dict (no state updates needed - routing handled by edges)
+
+    Flow:
+        validate → decide → should_continue() →
+            ├─ "end_success" → END (all validators passed)
+            ├─ "end_failure" → END (max attempts reached)
+            └─ "retry" → increment_attempt → validate (loop)
 
     Example:
         >>> state = {"success": True}
@@ -271,13 +276,29 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
     print("\n" + "=" * 70)
     print("NODE: decide")
     print("=" * 70)
-    print("Making decision (placeholder - STEP 3 will implement retry logic)...")
-    print("✅ Decision: END (no retry loop yet)")
+
+    # Show current state info
+    success = state.get("success", False)
+    attempt = state.get("attempt", 0)
+    max_attempts = state.get("max_attempts", 10)
+    failed_validators = state.get("failed_validators", [])
+
+    if success:
+        print("✅ All validators passed")
+        print("   Decision: END with success")
+    elif attempt >= max_attempts - 1:
+        print(f"⚠️  Max attempts reached ({attempt + 1}/{max_attempts})")
+        print(f"   Failed validators: {', '.join(failed_validators) if failed_validators else 'none'}")
+        print("   Decision: END with failure")
+    else:
+        print(f"❌ Validation failed (attempt {attempt + 1}/{max_attempts})")
+        print(f"   Failed validators: {', '.join(failed_validators)}")
+        print("   Decision: RETRY (increment attempt and re-validate)")
+
     print("=" * 70)
     print()
 
-    # Placeholder: No decision logic yet
-    # Actual routing happens in should_continue() edge function (STEP 3)
+    # No state updates - routing handled by should_continue() edge function
     return {}
 
 
