@@ -90,6 +90,31 @@ class AgentConfig(BaseModel):
     )
 
 
+class ValidatorConfig(BaseModel):
+    """Configuration for a single validator.
+
+    Validators are conditions checked by the framework (build, test, conflicts).
+    They are NOT tools for the AI agent.
+
+    Attributes:
+        type: Validator type (command, git-conflict)
+        name: Human-readable validator name
+        timeout: Maximum execution time in seconds
+        command: Shell command (for type='command')
+        capture_lines: Number of output lines to capture (for type='command')
+    """
+
+    type: str = Field(..., description="Validator type (command, git-conflict)")
+    name: str = Field(..., description="Human-readable validator name")
+    timeout: float = Field(default=600.0, ge=1.0, description="Timeout in seconds")
+    command: str | None = Field(
+        default=None, description="Shell command (for command validator)"
+    )
+    capture_lines: int = Field(
+        default=100, ge=1, description="Lines to capture (for command validator)"
+    )
+
+
 class RetryStrategyConfig(BaseModel):
     """Configuration for retry strategy.
 
@@ -119,6 +144,7 @@ class ConvergenceConfig(BaseModel):
         name: Name/description of this convergence configuration
         max_attempts: Maximum number of convergence loop iterations
         pre_actions: List of pre-actions to run before the loop
+        validators: List of validators to run in the convergence loop
         agent: Agent configuration
         retry_strategy: Retry strategy configuration
         working_directory: Working directory for execution
@@ -134,6 +160,10 @@ class ConvergenceConfig(BaseModel):
     pre_actions: list[PreActionConfig] = Field(
         default_factory=list,
         description="Pre-actions to run before convergence loop",
+    )
+    validators: list[ValidatorConfig] = Field(
+        default_factory=list,
+        description="Validators to run in the convergence loop",
     )
     agent: AgentConfig = Field(
         default_factory=AgentConfig,

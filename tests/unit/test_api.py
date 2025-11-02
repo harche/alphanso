@@ -8,6 +8,7 @@ import yaml
 from pydantic import ValidationError
 
 from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig
 
 
 class TestRunConvergence:
@@ -40,7 +41,9 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            # Load config and run
+            config = ConvergenceConfig.from_yaml(config_path)
+            result = run_convergence(config=config)
 
             # Should succeed
             assert result["success"] is True
@@ -78,8 +81,9 @@ retry_strategy:
             config_path = f.name
 
         try:
+            config = ConvergenceConfig.from_yaml(config_path)
             result = run_convergence(
-                config_path=config_path, env_vars={"TEST_VAR": "hello_world"}
+                config=config, env_vars={"TEST_VAR": "hello_world"}
             )
 
             assert result["success"] is True
@@ -113,7 +117,8 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            config = ConvergenceConfig.from_yaml(config_path)
+            result = run_convergence(config=config)
 
             assert result["success"] is True
             # Should have a timestamp in YYYY-MM-DD HH:MM:SS format
@@ -149,7 +154,8 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            config = ConvergenceConfig.from_yaml(config_path)
+            result = run_convergence(config=config)
 
             assert result["success"] is False
             assert len(result["pre_action_results"]) == 1
@@ -187,7 +193,8 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            config = ConvergenceConfig.from_yaml(config_path)
+            result = run_convergence(config=config)
 
             assert result["success"] is True
             assert len(result["pre_action_results"]) == 3
@@ -198,12 +205,12 @@ retry_strategy:
             Path(config_path).unlink()
 
     def test_run_convergence_with_nonexistent_file(self) -> None:
-        """Test run_convergence with non-existent config file."""
+        """Test loading config with non-existent file."""
         with pytest.raises(FileNotFoundError):
-            run_convergence(config_path="/nonexistent/file.yaml")
+            ConvergenceConfig.from_yaml("/nonexistent/file.yaml")
 
     def test_run_convergence_with_invalid_yaml(self) -> None:
-        """Test run_convergence with invalid YAML."""
+        """Test loading config with invalid YAML."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -212,12 +219,12 @@ retry_strategy:
 
         try:
             with pytest.raises(yaml.YAMLError):
-                run_convergence(config_path=config_path)
+                ConvergenceConfig.from_yaml(config_path)
         finally:
             Path(config_path).unlink()
 
     def test_run_convergence_with_invalid_config_schema(self) -> None:
-        """Test run_convergence with invalid config schema."""
+        """Test loading config with invalid schema."""
         config_content = """
 name: ""
 max_attempts: -1
@@ -231,7 +238,7 @@ max_attempts: -1
 
         try:
             with pytest.raises(ValidationError):
-                run_convergence(config_path=config_path)
+                ConvergenceConfig.from_yaml(config_path)
         finally:
             Path(config_path).unlink()
 
@@ -265,7 +272,8 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            config = ConvergenceConfig.from_yaml(config_path)
+            result = run_convergence(config=config)
 
             # Overall should fail because one action failed
             assert result["success"] is False
@@ -301,9 +309,14 @@ retry_strategy:
             config_path = f.name
 
         try:
-            result = run_convergence(config_path=config_path)
+            config = ConvergenceConfig.from_yaml(config_path)
+            # Pass the working directory explicitly (simulating what CLI does)
+            result = run_convergence(
+                config=config,
+                working_directory=Path(config_path).parent.absolute()
+            )
 
-            # Working directory should be the parent of the config file
+            # Working directory should be what we passed
             assert result["working_directory"] == str(Path(config_path).parent.absolute())
         finally:
             Path(config_path).unlink()

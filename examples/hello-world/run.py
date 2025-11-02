@@ -37,6 +37,18 @@ def main() -> None:
             for action in config.pre_actions
         ],
         "pre_action_results": [],
+        "validators_config": [
+            {
+                "type": validator.type,
+                "name": validator.name,
+                "command": validator.command,
+                "timeout": validator.timeout,
+                "capture_lines": validator.capture_lines,
+            }
+            for validator in config.validators
+        ],
+        "validation_results": [],
+        "failed_validators": [],
         "env_vars": env_vars,
         "attempt": 0,
         "max_attempts": config.max_attempts,
@@ -78,12 +90,40 @@ def main() -> None:
 
         print()
 
+    # Display validation results
+    print("=" * 70)
+    print("Validation Results:")
+    print("=" * 70)
+    print()
+
+    if final_state["validation_results"]:
+        for validation_result in final_state["validation_results"]:
+            status = "✅ SUCCESS" if validation_result["success"] else "❌ FAILED"
+            duration = validation_result["duration"]
+            print(f"{status}: {validation_result['validator_name']} ({duration:.2f}s)")
+
+            if validation_result["output"]:
+                first_line = validation_result["output"].strip().split("\n")[0]
+                if first_line:
+                    print(f"  │ {first_line[:80]}")
+
+            if not validation_result["success"] and validation_result["stderr"]:
+                first_error = validation_result["stderr"].strip().split("\n")[0]
+                print(f"  │ Error: {first_error[:80]}")
+
+            print()
+    else:
+        print("No validators configured")
+        print()
+
     # Summary
     print("=" * 70)
     print("Summary:")
     print("=" * 70)
     print(f"Graph structure: START → pre_actions → validate → decide → END")
     print(f"Pre-actions completed: {final_state['pre_actions_completed']}")
+    print(f"Validators run: {len(final_state['validation_results'])}")
+    print(f"Failed validators: {len(final_state['failed_validators'])}")
     print(f"Validation status: {'✅ PASSED' if final_state['success'] else '❌ FAILED'}")
     print(f"Working directory: {final_state['working_directory']}")
     print()

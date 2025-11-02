@@ -52,11 +52,13 @@ Apply security patches while automatically fixing resulting regressions.
 ## 🚀 Key Features
 
 - **Pre-Actions System**: Execute setup commands before entering the convergence loop
+- **Validator System**: Check conditions (build, test, conflicts) with timing and detailed results
 - **Multiple Agent SDKs**: Support for Claude Agent SDK and OpenAI Agent SDK
 - **Variable Substitution**: Dynamic environment variable injection in commands
 - **Type-Safe Configuration**: Pydantic-based YAML configuration with validation
-- **Flexible Architecture**: Extensible workflow orchestration with state management
-- **Professional Quality**: 96%+ test coverage, strict mypy typing, comprehensive tooling
+- **LangGraph Workflow**: State machine orchestration with visual execution flow
+- **Flexible Architecture**: Extensible workflow with state management
+- **Professional Quality**: 87%+ test coverage, strict mypy typing, comprehensive tooling
 
 ## 📦 Installation
 
@@ -86,22 +88,21 @@ cd alphanso
 # Install dependencies
 uv sync
 
-# Run the hello world example
-uv run python examples/hello-world/run.py
-
-# Or use the CLI
+# Run the hello world example using the CLI
 uv run alphanso run --config examples/hello-world/config.yaml
 ```
 
 This example demonstrates:
-- **LangGraph state machine**: See all 3 nodes executing (pre_actions → validate → decide)
+- **LangGraph state machine**: See all nodes executing (pre_actions → validate → decide)
+- **Validators**: Running build, test, and conflict checks
+- **Real-time progress**: Watch each step execute with timing
 - Loading configuration from YAML
 - Running pre-actions with variable substitution
 - Complete workflow visibility from START to END
 
 **No external dependencies required** - just basic shell commands!
 
-**Expected Output** (showing LangGraph nodes):
+**Expected Output**:
 ```
 Loading configuration from: examples/hello-world/config.yaml
 
@@ -126,13 +127,26 @@ Running pre-actions to set up environment...
 
 [5/5] Display greeting
      ✅ Success
-     │ Hello! Current time is 2025-11-02 08:05:35
+     │ Hello! Current time is 2025-11-02 08:45:03
 
 ======================================================================
 NODE: validate
 ======================================================================
-Running validators (placeholder - STEP 2 will implement)...
-✅ Validation PASSED (all validators will be added in STEP 2)
+Running validators to check current state...
+
+[1/4] Check Greeting File Exists
+     ✅ Success (0.00s)
+
+[2/4] Verify Greeting Content
+     ✅ Success (0.01s)
+
+[3/4] Check Directory Structure
+     ✅ Success (0.00s)
+
+[4/4] Git Conflict Check
+     ✅ Success (0.01s)
+
+✅ All validators PASSED
 
 ======================================================================
 NODE: decide
@@ -159,6 +173,7 @@ agent:
   claude:
     model: "claude-sonnet-4-5-20250929"
 
+# Pre-actions run once before the convergence loop
 pre_actions:
   - command: "mkdir -p output"
     description: "Create output directory"
@@ -168,48 +183,76 @@ pre_actions:
 
   - command: "cat output/greeting.txt"
     description: "Display greeting"
+
+# Validators run in the convergence loop to check conditions
+validators:
+  - type: "command"
+    name: "Check Greeting File Exists"
+    command: "test -f output/greeting.txt"
+    timeout: 5.0
+
+  - type: "command"
+    name: "Verify Greeting Content"
+    command: "grep -q 'Hello' output/greeting.txt"
+    timeout: 5.0
+
+  - type: "git-conflict"
+    name: "Git Conflict Check"
+    timeout: 10.0
 ```
 
 ### Using the CLI
 
 ```bash
 # Run with a config file
-alphanso run --config config.yaml
+uv run alphanso run --config examples/hello-world/config.yaml
 
 # Pass environment variables
-alphanso run --config rebase.yaml --var K8S_TAG=v1.35.0 --var RELEASE=4.22
+uv run alphanso run --config config.yaml --var K8S_TAG=v1.35.0 --var RELEASE=4.22
 ```
 
-### Using as a Python Library
+### Using the Python API
 
-You can also use Alphanso programmatically using the same API that the CLI uses:
+You can also use Alphanso programmatically. The API accepts `ConvergenceConfig` objects:
 
 ```python
 from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig, PreActionConfig, ValidatorConfig
 
-# Run with a config file
+# Create config programmatically
+config = ConvergenceConfig(
+    name="My Workflow",
+    max_attempts=10,
+    pre_actions=[
+        PreActionConfig(command="echo 'Hello'", description="Greeting")
+    ],
+    validators=[
+        ValidatorConfig(type="command", name="Test", command="test -f file.txt")
+    ]
+)
+
+# Run convergence
 result = run_convergence(
-    config_path="config.yaml",
-    env_vars={"K8S_TAG": "v1.35.0"}  # Optional environment variables
+    config=config,
+    env_vars={"CUSTOM_VAR": "value"},  # Optional
+    working_directory="."  # Optional, defaults to config.working_directory
 )
 
 # Check results
 if result["success"]:
-    print("✅ All pre-actions succeeded!")
+    print("✅ All steps succeeded!")
     for action in result["pre_action_results"]:
-        print(f"  - {action['action']}")
-else:
-    print("❌ Some pre-actions failed")
-    for action in result["pre_action_results"]:
-        if not action["success"]:
-            print(f"  - {action['action']}: {action['stderr']}")
+        status = "✅" if action["success"] else "❌"
+        print(f"{status} {action['action']}")
 ```
 
-The `run_convergence()` function returns a `ConvergenceResult` with:
-- `success`: bool - Overall success status
-- `pre_action_results`: list - Results from each pre-action
-- `config_name`: str - Name from the config file
-- `working_directory`: str - Working directory used
+The `run_convergence()` function:
+- **Takes**: `ConvergenceConfig` object, optional env_vars, optional working_directory
+- **Returns**: `ConvergenceResult` with:
+  - `success`: bool - Overall success status
+  - `pre_action_results`: list - Results from each pre-action
+  - `config_name`: str - Name from the config
+  - `working_directory`: str - Working directory used
 
 ### More Examples
 
@@ -340,40 +383,51 @@ uv run ruff check src/ tests/
 - ✅ ValidationResult TypedDict for validator outputs
 - ✅ LangGraph integration with StateGraph and graph compilation
 - ✅ Graph builder with linear flow: START → pre_actions → validate → decide → END
-- ✅ Placeholder nodes for validate and decide (ready for STEP 2 & 3)
 - ✅ Full mypy --strict typing with proper LangGraph generics
 
-**Test Coverage**: 76 tests, 97.33% coverage
+**STEP 2: Validator Base Class & Simple Validators** ✅ **COMPLETE**
+
+- ✅ Validator abstract base class with timing and error handling
+- ✅ CommandValidator for shell commands (make, test, build, etc.)
+- ✅ GitConflictValidator for merge conflict detection
+- ✅ create_validators() factory function
+- ✅ Real validate_node implementation with progress display
+- ✅ Comprehensive tests (41 tests, 100% validators coverage)
+- ✅ Updated hello-world example with 4 validators
+
+**Test Coverage**: 117 tests, 87.11% coverage
 
 ```
-Name                                  Stmts   Miss   Cover
----------------------------------------------------------
-src/alphanso/actions/pre_actions.py      31      0  100.00%
-src/alphanso/api.py                      31      0   97.14%
-src/alphanso/cli.py                      54      1   97.14%
-src/alphanso/config/schema.py            41      0  100.00%
-src/alphanso/graph/builder.py            14      0  100.00%
-src/alphanso/graph/nodes.py              24      1   91.18%
-src/alphanso/graph/state.py              31      0  100.00%
----------------------------------------------------------
-TOTAL                                   228      3   97.33%
+Name                                  Stmts   Miss Branch BrPart   Cover
+------------------------------------------------------------------------
+src/alphanso/actions/pre_actions.py      31      0      0      0  100.00%
+src/alphanso/api.py                      31      0      4      1   97.14%
+src/alphanso/cli.py                      33      0      6      0  100.00%
+src/alphanso/config/schema.py            48      0      4      0  100.00%
+src/alphanso/graph/builder.py            16      0      0      0  100.00%
+src/alphanso/graph/nodes.py              91     28     36      5   62.99%
+src/alphanso/graph/state.py              31      0      0      0  100.00%
+src/alphanso/validators/base.py          16      0      0      0  100.00%
+src/alphanso/validators/command.py       16      0      0      0  100.00%
+src/alphanso/validators/git.py           11      0      0      0  100.00%
+------------------------------------------------------------------------
+TOTAL                                   330     29     50      6   87.11%
 ```
 
 ## 🗺️ Roadmap
 
-Alphanso is under active development. STEP 0 (Pre-Actions) and STEP 1 (Graph Structure) are complete and production-ready. The next phases will add validators, retry logic, and AI agent integration.
+Alphanso is under active development. STEP 0 (Pre-Actions), STEP 1 (Graph Structure), and STEP 2 (Validators) are complete and production-ready. The next phases will add retry logic and AI agent integration.
 
 ### Core Framework
 - [x] **STEP 0: Pre-Actions System** ✅ - Commands that run once before convergence
 - [x] **STEP 1: State Schema & Graph Structure** ✅ - LangGraph workflow orchestration
-- [ ] **STEP 2: Validator System** - Build, test, and conflict detection
+- [x] **STEP 2: Validator System** ✅ - Build, test, and conflict detection
 - [ ] **STEP 3: Retry Loop & Conditional Edges** - Intelligent iteration control
-- [ ] **Investigation & Fixing Tools** - AI-powered problem analysis
-- [ ] **AI Agent Integration** - Claude/OpenAI agent orchestration
+- [ ] **STEP 4: Investigation & Fixing Tools** - AI-powered problem analysis
+- [ ] **STEP 5: AI Agent Integration** - Claude/OpenAI agent orchestration
 - [ ] **Extended Configuration System** - Advanced workflow options
 - [ ] **Container Operations Support** - Podman/Docker integration
 - [ ] **Targeted Retry Strategy** - Smart failure tracking and recovery
-- [ ] **CLI Interface** - `alphanso` command-line tool
 
 ### Use Case Examples
 - [ ] **Dependency Upgrade Example** - Automated package updates

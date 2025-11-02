@@ -7,17 +7,35 @@ This directory contains example workflows demonstrating different use cases and 
 ### 🌟 [Hello World](hello-world/)
 **Difficulty**: Beginner | **Dependencies**: None
 
-A simple introduction to Alphanso's pre-actions system. This example uses only basic shell commands (mkdir, echo, cat) and demonstrates:
+A simple introduction to Alphanso's workflow system. This example uses only basic shell commands and demonstrates:
 - Loading YAML configuration
 - Running pre-actions sequentially
+- Running validators to check conditions
 - Variable substitution with `${VAR}` syntax
-- Result handling and error reporting
+- LangGraph state machine execution
+- Real-time progress display with timing
 
 **Perfect for**: First-time users learning the basics
 
-**Run it**:
+**Run it using the CLI**:
 ```bash
-uv run python examples/hello-world/run.py
+uv run alphanso run --config examples/hello-world/config.yaml
+```
+
+**Or using the Python API**:
+```python
+from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig, PreActionConfig
+
+# Create config object
+config = ConvergenceConfig(
+    name="Hello World",
+    max_attempts=10,
+    pre_actions=[PreActionConfig(command="echo 'Hello'", description="Greeting")]
+)
+
+# Run convergence
+result = run_convergence(config=config)
 ```
 
 ---
@@ -45,22 +63,58 @@ Automated dependency upgrade workflow showing:
 
 ## Running Examples
 
-All examples can be run from the project root:
+All examples can be run using the Alphanso CLI:
 
 ```bash
 # Ensure dependencies are installed
 uv sync
 
-# Run any example
-uv run python examples/<example-name>/run.py
+# Run any example using the CLI
+uv run alphanso run --config examples/<example-name>/config.yaml
+
+# Or use the Python API (example with programmatic config)
+python -c "
+from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig, PreActionConfig
+
+config = ConvergenceConfig(
+    name='Example',
+    max_attempts=10,
+    pre_actions=[PreActionConfig(command='echo test', description='Test')]
+)
+result = run_convergence(config=config)
+print('Success!' if result['success'] else 'Failed')
+"
 ```
 
 ## Creating Your Own Example
 
 Each example should include:
-1. `config.yaml` - Alphanso configuration
-2. `run.py` - Python script to execute the workflow
-3. `README.md` - Documentation explaining the example
-4. `.gitignore` - Ignore generated files
+1. `config.yaml` - Alphanso configuration with pre-actions and validators
+2. `README.md` - Documentation explaining:
+   - What the example demonstrates
+   - How to run it using CLI and API
+   - Expected output
+   - Prerequisites/dependencies
+3. `.gitignore` - Ignore generated files (optional)
 
-See `hello-world/` for a template.
+**Recommended structure**:
+```yaml
+# config.yaml
+name: "Your Example Name"
+max_attempts: 10
+
+agent:
+  type: "claude-agent-sdk"
+
+pre_actions:
+  - command: "your setup command"
+    description: "What it does"
+
+validators:
+  - type: "command"
+    name: "Check Something"
+    command: "test -f file.txt"
+```
+
+See `hello-world/` for a complete template.

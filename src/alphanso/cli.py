@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig
 
 
 @click.group()
@@ -51,12 +52,23 @@ def run(config: Path, var: tuple[str, ...]) -> None:
     click.echo(f"Loading configuration from: {config}")
     click.echo()
 
+    # Load configuration from YAML
+    try:
+        config_obj = ConvergenceConfig.from_yaml(config)
+    except Exception as e:
+        click.echo(f"Error loading configuration: {e}", err=True)
+        sys.exit(1)
+
     # Run convergence using API
     # Note: All output is now printed in real-time by the graph nodes
     try:
-        result = run_convergence(config_path=config, env_vars=env_vars)
+        result = run_convergence(
+            config=config_obj,
+            env_vars=env_vars,
+            working_directory=config.parent.absolute(),
+        )
     except Exception as e:
-        click.echo(f"Error loading configuration: {e}", err=True)
+        click.echo(f"Error running convergence: {e}", err=True)
         sys.exit(1)
 
     # Summary

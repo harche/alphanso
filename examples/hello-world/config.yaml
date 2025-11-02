@@ -23,6 +23,27 @@ pre_actions:
   - command: "cat output/greeting.txt"
     description: "Display greeting"
 
+# Validators run in the convergence loop to check conditions
+validators:
+  - type: "command"
+    name: "Check Greeting File Exists"
+    command: "test -f output/greeting.txt"
+    timeout: 5.0
+
+  - type: "command"
+    name: "Verify Greeting Content"
+    command: "grep -q 'Hello' output/greeting.txt"
+    timeout: 5.0
+
+  - type: "command"
+    name: "Check Directory Structure"
+    command: "test -d output"
+    timeout: 5.0
+
+  - type: "git-conflict"
+    name: "Git Conflict Check"
+    timeout: 10.0
+
 retry_strategy:
   type: "hybrid"
   max_tracked_failures: 10

@@ -1,7 +1,6 @@
 """Public API for Alphanso framework.
 
 This module provides the main programmatic interface for using Alphanso.
-Both CLI and library users should use these functions.
 """
 
 from datetime import datetime
@@ -34,39 +33,49 @@ class ConvergenceResult(TypedDict):
 
 
 def run_convergence(
-    config_path: str | Path,
+    config: ConvergenceConfig,
     env_vars: dict[str, str] | None = None,
+    working_directory: str | Path | None = None,
 ) -> ConvergenceResult:
     """Run Alphanso convergence loop with the given configuration.
 
     This is the main entry point for using Alphanso programmatically.
-    The CLI uses this same function internally.
 
     Args:
-        config_path: Path to the YAML configuration file
+        config: ConvergenceConfig object with workflow configuration
         env_vars: Optional environment variables for substitution in pre-actions.
                  If CURRENT_TIME is not provided, it will be added automatically.
+        working_directory: Optional working directory for command execution.
+                          Defaults to config.working_directory if not provided.
 
     Returns:
         ConvergenceResult with success status and pre-action results
 
-    Raises:
-        FileNotFoundError: If config file doesn't exist
-        yaml.YAMLError: If YAML is malformed
-        pydantic.ValidationError: If config doesn't match schema
-
     Example:
         >>> from alphanso.api import run_convergence
+        >>> from alphanso.config.schema import ConvergenceConfig, PreActionConfig
+        >>>
+        >>> # Create config programmatically
+        >>> config = ConvergenceConfig(
+        ...     name="My Workflow",
+        ...     max_attempts=10,
+        ...     pre_actions=[
+        ...         PreActionConfig(
+        ...             command="echo 'Hello'",
+        ...             description="Greeting"
+        ...         )
+        ...     ]
+        ... )
+        >>>
+        >>> # Run convergence
         >>> result = run_convergence(
-        ...     config_path="config.yaml",
+        ...     config=config,
         ...     env_vars={"K8S_TAG": "v1.35.0"}
         ... )
+        >>>
         >>> if result["success"]:
-        ...     print("All pre-actions succeeded!")
+        ...     print("All steps succeeded!")
     """
-    # Convert to Path object
-    config_path_obj = Path(config_path)
-
     # Initialize env_vars if not provided
     if env_vars is None:
         env_vars = {}
@@ -75,8 +84,10 @@ def run_convergence(
     if "CURRENT_TIME" not in env_vars:
         env_vars["CURRENT_TIME"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Load configuration (may raise FileNotFoundError, YAMLError, ValidationError)
-    config = ConvergenceConfig.from_yaml(config_path_obj)
+    # Determine working directory
+    if working_directory is None:
+        working_directory = config.working_directory
+    working_dir_str = str(Path(working_directory).absolute())
 
     # Create initial state
     initial_state: ConvergenceState = {
@@ -86,11 +97,23 @@ def run_convergence(
             for action in config.pre_actions
         ],
         "pre_action_results": [],
+        "validators_config": [
+            {
+                "type": validator.type,
+                "name": validator.name,
+                "command": validator.command,
+                "timeout": validator.timeout,
+                "capture_lines": validator.capture_lines,
+            }
+            for validator in config.validators
+        ],
+        "validation_results": [],
+        "failed_validators": [],
         "env_vars": env_vars,
         "attempt": 0,
         "max_attempts": config.max_attempts,
         "success": False,
-        "working_directory": str(config_path_obj.parent.absolute()),
+        "working_directory": working_dir_str,
     }
 
     # Create and execute convergence graph
