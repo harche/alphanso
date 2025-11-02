@@ -1,0 +1,30 @@
+name: "Hello World Example"
+max_attempts: 10
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+# Pre-actions run once before the convergence loop
+pre_actions:
+  - command: "echo 'Step 1: Setting up environment...'"
+    description: "Initialize environment"
+
+  - command: "echo 'Step 2: Creating directories...'"
+    description: "Create directories"
+
+  - command: "mkdir -p output"
+    description: "Create output directory"
+
+  - command: "echo 'Hello! Current time is ${CURRENT_TIME}' > output/greeting.txt"
+    description: "Write greeting file"
+
+  - command: "cat output/greeting.txt"
+    description: "Display greeting"
+
+retry_strategy:
+  type: "hybrid"
+  max_tracked_failures: 10
+
+working_directory: "."
