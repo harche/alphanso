@@ -1,0 +1,93 @@
+"""Prompt builders for Claude Code Agent SDK.
+
+This module provides functions to build system prompts and user messages
+that explain validation failures to Claude and request fixes.
+"""
+
+from alphanso.graph.state import ConvergenceState
+
+
+def build_fix_prompt(
+    state: ConvergenceState, custom_prompt: str | None = None
+) -> str:
+    """Build system prompt for AI fix node.
+
+    Optionally starts with custom prompt defining agent's role/task,
+    then adds convergence loop context with validation failures.
+
+    Args:
+        state: Current convergence state
+        custom_prompt: Optional custom prompt defining agent role/task
+                      (e.g., "You are a Kubernetes rebasing agent...")
+
+    Returns:
+        Complete system prompt with custom prefix + convergence context
+    """
+    # Start with custom prompt if provided
+    if custom_prompt:
+        prompt = custom_prompt.strip() + "\n\n---\n\n"
+    else:
+        prompt = ""
+
+    # Add convergence loop context
+    attempt = state.get("attempt", 0)
+    max_attempts = state.get("max_attempts", 10)
+    failed = state.get("failed_validators", [])
+
+    prompt += f"""Attempt: {attempt + 1}/{max_attempts}
+
+IMPORTANT: The framework runs validators (make, make test, etc.) and reports results to you.
+Your job is to investigate WHY they failed and FIX the issues using the tools available to you.
+
+Failed Validators (run by framework, not you):
+{', '.join(failed) if failed else 'None'}
+
+You have access to investigation and fixing tools from the SDK. Use whatever tools are needed
+to understand the failures and apply fixes. The framework will re-run validators after you're done.
+
+Previous attempts:
+"""
+
+    # Add failure history
+    for i, history in enumerate(state.get("failure_history", [])):
+        prompt += f"\nAttempt {i + 1}:\n"
+        for result in history:
+            if not result.get("success", True):
+                validator_name = result.get("validator_name", "Unknown")
+                output = result.get("output", "")
+                prompt += f"  - {validator_name}: {output[:200]}\n"
+
+    return prompt
+
+
+def build_user_message(state: ConvergenceState) -> str:
+    """Build user message with current failure details.
+
+    Args:
+        state: Current convergence state
+
+    Returns:
+        User message with formatted validation failure details
+    """
+    message = "The framework ran validators and the following failed:\n\n"
+
+    for result in state.get("validation_results", []):
+        if not result.get("success", True):
+            message += f"## Validator: {result.get('validator_name', 'Unknown')}\n"
+            message += f"Exit Code: {result.get('exit_code', 'N/A')}\n"
+            message += f"Output:\n```\n{result.get('output', '')}\n```\n"
+
+            stderr = result.get("stderr", "")
+            if stderr:
+                message += f"Stderr:\n```\n{stderr}\n```\n"
+
+            # Include metadata (e.g., failing packages)
+            metadata = result.get("metadata", {})
+            if metadata:
+                message += f"Metadata: {metadata}\n"
+
+            message += "\n"
+
+    message += "Please investigate using SDK tools and fix the issues."
+
+    return message

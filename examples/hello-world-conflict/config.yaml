@@ -1,0 +1,26 @@
+name: "Git Merge Conflict Resolution"
+max_attempts: 5
+
+# Pre-actions - fetch upstream and attempt merge (will create conflict)
+pre_actions:
+  - command: "git fetch upstream"
+    description: "Fetch upstream changes"
+
+  - command: "git merge v2.0.0 || true"
+    description: "Attempt merge (will conflict)"
+
+# Validators - check for conflicts
+validators:
+  - type: git-conflict
+    name: "Git Conflict Check"
+    timeout: 10
+
+# Agent configuration
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+    system_prompt_file: "prompts/conflict-resolver.txt"
+
+retry_strategy:
+  type: hybrid

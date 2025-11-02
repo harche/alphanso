@@ -39,11 +39,16 @@ class ClaudeAgentConfig(BaseModel):
 
     Attributes:
         model: Claude model identifier
+        system_prompt: Optional custom system prompt defining agent's role and task
     """
 
     model: str = Field(
         default="claude-sonnet-4-5-20250929",
         description="Claude model identifier",
+    )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Custom system prompt defining agent's role and task",
     )
 
 
@@ -182,6 +187,11 @@ class ConvergenceConfig(BaseModel):
     def from_yaml(cls, path: str | Path) -> "ConvergenceConfig":
         """Load configuration from a YAML file.
 
+        Handles system_prompt_file processing BEFORE validation:
+        - Reads file referenced by system_prompt_file
+        - Replaces with system_prompt field containing file content
+        - Removes system_prompt_file before validation
+
         Args:
             path: Path to YAML configuration file
 
@@ -204,6 +214,30 @@ class ConvergenceConfig(BaseModel):
 
         with open(path_obj) as f:
             data = yaml.safe_load(f)
+
+        # Process system_prompt_file BEFORE validation
+        if "agent" in data and "claude" in data["agent"]:
+            claude_config = data["agent"]["claude"]
+
+            if "system_prompt_file" in claude_config:
+                prompt_file = claude_config["system_prompt_file"]
+                prompt_path = Path(prompt_file)
+
+                # Resolve relative to config file location
+                if not prompt_path.is_absolute():
+                    prompt_path = path_obj.parent / prompt_path
+
+                # Read file and replace with content
+                if not prompt_path.exists():
+                    raise FileNotFoundError(
+                        f"System prompt file not found: {prompt_path}"
+                    )
+
+                with open(prompt_path) as f:
+                    claude_config["system_prompt"] = f.read()
+
+                # Remove file reference before validation
+                del claude_config["system_prompt_file"]
 
         return cls.model_validate(data)
 
