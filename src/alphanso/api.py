@@ -34,6 +34,7 @@ class ConvergenceResult(TypedDict):
 
 def run_convergence(
     config: ConvergenceConfig,
+    system_prompt_content: str,
     env_vars: dict[str, str] | None = None,
     working_directory: str | Path | None = None,
 ) -> ConvergenceResult:
@@ -43,6 +44,9 @@ def run_convergence(
 
     Args:
         config: ConvergenceConfig object with workflow configuration
+        system_prompt_content: System prompt content defining agent's role and task.
+                              CLI loads this from config.agent.claude.system_prompt_file.
+                              Direct API users should provide the content directly.
         env_vars: Optional environment variables for substitution in pre-actions.
                  If CURRENT_TIME is not provided, it will be added automatically.
         working_directory: Optional working directory for command execution.
@@ -109,11 +113,14 @@ def run_convergence(
         ],
         "validation_results": [],
         "failed_validators": [],
+        "failure_history": [],
         "env_vars": env_vars,
         "attempt": 0,
         "max_attempts": config.max_attempts,
         "success": False,
         "working_directory": working_dir_str,
+        "agent_config": {"model": config.agent.claude.model},
+        "system_prompt_content": system_prompt_content,
     }
 
     # Create and execute convergence graph

@@ -49,12 +49,15 @@ git add README.md
 git commit -m "Update to v2.0.0"
 git tag v2.0.0
 
-# Create fork repo
+# Create fork repo - start from v1.0.0, not the latest
 cd "${REPOS_DIR}"
 git clone upstream fork
 cd fork
 git config user.name "Fork Dev"
 git config user.email "fork@example.com"
+
+# Reset fork to v1.0.0 (before upstream's v2.0.0 changes)
+git reset --hard v1.0.0
 
 # Make conflicting changes in fork
 cat > README.md <<'EOF'

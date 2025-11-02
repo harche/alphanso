@@ -21,9 +21,9 @@ class TestConvergenceAgent:
         """Test ConvergenceAgent initializes with default parameters."""
         # Mock environment to have ANTHROPIC_API_KEY set
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-            agent = ConvergenceAgent()
+            agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
-            assert agent.model == "claude-sonnet-4-5-20250929"
+            assert agent.model == "claude-sonnet-4-5@20250929"
             assert agent.working_directory is not None
             assert agent.client is not None
             assert agent.provider == "anthropic"
@@ -49,7 +49,7 @@ class TestConvergenceAgent:
             # Mock the AnthropicVertex import since it's imported inside __init__
             mock_vertex_instance = MagicMock()
             with patch("anthropic.AnthropicVertex", return_value=mock_vertex_instance):
-                agent = ConvergenceAgent()
+                agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
                 assert agent.provider == "vertex"
                 assert agent.client is mock_vertex_instance
@@ -57,16 +57,21 @@ class TestConvergenceAgent:
     def test_agent_initialization_raises_without_provider(self) -> None:
         """Test ConvergenceAgent raises error when no provider is configured."""
         with patch.dict(
-            os.environ, {"ANTHROPIC_API_KEY": "", "VERTEX_PROJECT_ID": ""}, clear=False
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "",
+                "VERTEX_PROJECT_ID": "",
+                "ANTHROPIC_VERTEX_PROJECT_ID": "",
+            },
+            clear=False,
         ):
             with pytest.raises(ValueError) as exc_info:
-                ConvergenceAgent()
+                ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
             error_msg = str(exc_info.value)
             assert "Neither ANTHROPIC_API_KEY nor VERTEX_PROJECT_ID is set" in error_msg
 
-    @pytest.mark.asyncio
-    async def test_agent_invoke_calls_sdk_correctly(self) -> None:
+    def test_agent_invoke_calls_sdk_correctly(self) -> None:
         """Test agent.invoke() calls Anthropic SDK with correct parameters."""
         # Mock response from SDK
         mock_response = MagicMock()
@@ -74,22 +79,22 @@ class TestConvergenceAgent:
         mock_response.stop_reason = "end_turn"
 
         mock_client = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
+        mock_client.messages.create = MagicMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("alphanso.agent.client.Anthropic", return_value=mock_client):
-                agent = ConvergenceAgent()
+                agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
                 system_prompt = "Test system prompt"
                 user_message = "Test user message"
 
-                result = await agent.invoke(system_prompt, user_message)
+                result = agent.invoke(system_prompt, user_message)
 
                 # Verify SDK was called correctly
                 mock_client.messages.create.assert_called_once()
                 call_kwargs = mock_client.messages.create.call_args[1]
 
-                assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+                assert call_kwargs["model"] == "claude-sonnet-4-5@20250929"
                 assert call_kwargs["system"] == system_prompt
                 assert call_kwargs["messages"] == [
                     {"role": "user", "content": user_message}
@@ -102,8 +107,7 @@ class TestConvergenceAgent:
                 assert "stop_reason" in result
                 assert result["stop_reason"] == "end_turn"
 
-    @pytest.mark.asyncio
-    async def test_agent_extracts_tool_calls_from_response(self) -> None:
+    def test_agent_extracts_tool_calls_from_response(self) -> None:
         """Test agent extracts tool calls from SDK response."""
         # Mock response with tool uses
         mock_tool_block = MagicMock()
@@ -117,13 +121,13 @@ class TestConvergenceAgent:
         mock_response.stop_reason = "end_turn"
 
         mock_client = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
+        mock_client.messages.create = MagicMock(return_value=mock_response)
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             with patch("alphanso.agent.client.Anthropic", return_value=mock_client):
-                agent = ConvergenceAgent()
+                agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
-                result = await agent.invoke("system", "user")
+                result = agent.invoke("system", "user")
 
                 # Verify tool calls extracted
                 assert len(result["tool_calls"]) == 1

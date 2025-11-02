@@ -39,16 +39,16 @@ class ClaudeAgentConfig(BaseModel):
 
     Attributes:
         model: Claude model identifier
-        system_prompt: Optional custom system prompt defining agent's role and task
+        system_prompt_file: Optional path to file containing custom system prompt
     """
 
     model: str = Field(
         default="claude-sonnet-4-5@20250929",
         description="Claude model identifier (Vertex AI format)",
     )
-    system_prompt: str | None = Field(
+    system_prompt_file: str | None = Field(
         default=None,
-        description="Custom system prompt defining agent's role and task",
+        description="Path to file containing custom system prompt defining agent's role and task",
     )
 
 

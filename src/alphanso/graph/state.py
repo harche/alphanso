@@ -60,9 +60,12 @@ class ConvergenceState(TypedDict, total=False):
         failure_history: History of failures across all attempts
 
         # AI interaction (investigation and fixing tools)
+        agent_config: Agent configuration (model, etc.)
         agent_session_id: Claude Agent SDK session ID
         agent_tool_calls: History of AI tool calls made
         agent_messages: Conversation history with AI
+        ai_response: Response from most recent AI invocation
+        system_prompt_content: System prompt content defining agent's role and task
 
         # Configuration
         validators_config: Configuration for validators
@@ -94,9 +97,12 @@ class ConvergenceState(TypedDict, total=False):
     failure_history: list[list[ValidationResult]]
 
     # AI interaction (tools for investigation and fixing)
+    agent_config: dict[str, Any]
     agent_session_id: str | None
     agent_tool_calls: list[dict[str, Any]]
     agent_messages: list[str]
+    ai_response: dict[str, Any]
+    system_prompt_content: str
 
     # Configuration
     validators_config: list[dict[str, Any]]

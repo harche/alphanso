@@ -1,28 +1,32 @@
 name: "Git Merge Conflict Resolution"
 max_attempts: 5
 
-# Working directory - run commands from the fork directory
-working_directory: "git-repos/fork"
+# Working directory - example directory (pre-actions run here, then agent works in git-repos/fork)
+working_directory: "."
 
-# Pre-actions - fetch upstream and attempt merge (will create conflict)
+# Pre-actions - setup repos and create conflict
 pre_actions:
-  - command: "git fetch upstream"
+  - command: "bash setup.sh"
+    description: "Setup git repositories with conflict"
+
+  - command: "cd git-repos/fork && git fetch upstream"
     description: "Fetch upstream changes"
 
-  - command: "git merge v2.0.0 || true"
+  - command: "cd git-repos/fork && git merge v2.0.0 || true"
     description: "Attempt merge (will conflict)"
 
-# Validators - check for conflicts
+# Validators - check for conflicts in fork directory
 validators:
-  - type: git-conflict
+  - type: command
     name: "Git Conflict Check"
+    command: "cd git-repos/fork && git diff --check"
     timeout: 10
 
 # Agent configuration
 agent:
   type: "claude-agent-sdk"
   claude:
-    model: "claude-sonnet-4-5-20250929"
+    model: "claude-sonnet-4-5@20250929"
     system_prompt_file: "prompts/conflict-resolver.txt"
 
 retry_strategy:

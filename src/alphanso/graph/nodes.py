@@ -6,6 +6,8 @@ This module contains the node functions that make up the convergence state graph
 from typing import Any
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
+from alphanso.agent.client import ConvergenceAgent
+from alphanso.agent.prompts import build_fix_prompt, build_user_message
 from alphanso.graph.state import ConvergenceState
 from alphanso.validators import CommandValidator, GitConflictValidator, Validator
 
@@ -350,5 +352,98 @@ def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
-# Additional node functions will be added in future steps:
-# - ai_fix_node (STEP 5) - Invoke Claude agent to fix failures
+def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
+    """Invoke Claude agent to investigate and fix validation failures.
+
+    This node is called when validators fail. It uses the Claude Agent SDK
+    to analyze the validation failures and attempt to fix them using available
+    tools (bash commands, file operations, etc.).
+
+    The agent is given:
+    - System prompt with context about failed validators and attempt history
+    - User message with detailed validation failure information
+    - Access to SDK tools for investigation and fixes
+
+    Args:
+        state: Current convergence state with validation failures
+
+    Returns:
+        Updated state with AI response metadata
+
+    Flow:
+        validate (failed) → decide → retry → increment_attempt → ai_fix → validate
+
+    Example:
+        >>> state = {
+        ...     "attempt": 1,
+        ...     "max_attempts": 5,
+        ...     "failed_validators": ["Build"],
+        ...     "validation_results": [{"validator_name": "Build", "success": False, ...}],
+        ...     "failure_history": [...],
+        ...     "agent_config": {"model": "claude-sonnet-4-5@20250929"},
+        ...     "working_directory": "/path/to/repo"
+        ... }
+        >>> updates = ai_fix_node(state)
+        >>> "ai_response" in updates
+        True
+    """
+    print("\n" + "=" * 70)
+    print("NODE: ai_fix")
+    print("=" * 70)
+    print("Invoking Claude agent to investigate and fix failures...")
+    print()
+
+    # Get agent configuration
+    agent_config = state.get("agent_config", {})
+    model = agent_config.get("model", "claude-sonnet-4-5@20250929")
+    working_dir = state.get("working_directory")
+    custom_prompt = state.get("system_prompt_content")
+
+    # Initialize agent
+    try:
+        agent = ConvergenceAgent(
+            model=model,
+            working_directory=working_dir,
+        )
+        print(f"✅ Agent initialized")
+        print(f"   Provider: {agent.provider}")
+        print(f"   Model: {agent.model}")
+        print()
+    except Exception as e:
+        print(f"❌ Failed to initialize agent: {e}")
+        print()
+        return {
+            "ai_response": {
+                "error": str(e),
+                "success": False,
+            }
+        }
+
+    # Build prompts
+    system_prompt = build_fix_prompt(state, custom_prompt=custom_prompt)
+    user_message = build_user_message(state)
+
+    # Invoke agent
+    try:
+        print("🤖 Invoking Claude agent...")
+        print()
+
+        response = agent.invoke(system_prompt, user_message)
+
+        print(f"✅ Agent invocation completed")
+        print(f"   Stop reason: {response.get('stop_reason', 'unknown')}")
+        print(f"   Tool calls: {response.get('tool_call_count', 0)}")
+        print()
+
+        return {
+            "ai_response": response,
+        }
+    except Exception as e:
+        print(f"❌ Agent invocation failed: {e}")
+        print()
+        return {
+            "ai_response": {
+                "error": str(e),
+                "success": False,
+            }
+        }

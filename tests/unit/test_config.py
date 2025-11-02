@@ -54,7 +54,7 @@ class TestAgentConfig:
         config = AgentConfig()
 
         assert config.type == "claude-agent-sdk"
-        assert config.claude.model == "claude-sonnet-4-5-20250929"
+        assert config.claude.model == "claude-sonnet-4-5@20250929"
         assert config.openai.model == "gpt-4"
 
     def test_claude_agent_config(self) -> None:

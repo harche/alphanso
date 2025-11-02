@@ -59,6 +59,21 @@ def run(config: Path, var: tuple[str, ...]) -> None:
         click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)
 
+    # Load system prompt from file
+    system_prompt_content = ""
+    if config_obj.agent.claude.system_prompt_file:
+        prompt_file_path = config.parent / config_obj.agent.claude.system_prompt_file
+        if not prompt_file_path.exists():
+            click.echo(
+                f"Error: System prompt file not found: {prompt_file_path}", err=True
+            )
+            sys.exit(1)
+        try:
+            system_prompt_content = prompt_file_path.read_text()
+        except Exception as e:
+            click.echo(f"Error reading system prompt file: {e}", err=True)
+            sys.exit(1)
+
     # Run convergence using API
     # Note: All output is now printed in real-time by the graph nodes
     # Don't pass working_directory - let it use config.working_directory
@@ -72,6 +87,7 @@ def run(config: Path, var: tuple[str, ...]) -> None:
 
         result = run_convergence(
             config=config_obj,
+            system_prompt_content=system_prompt_content,
             env_vars=env_vars,
             working_directory=working_dir.absolute(),
         )
