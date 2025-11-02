@@ -30,7 +30,7 @@ class ConvergenceAgent:
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str,
         working_directory: str | None = None,
     ):
         """Initialize Claude Agent SDK client.
@@ -40,7 +40,7 @@ class ConvergenceAgent:
         2. Otherwise → try Vertex AI (requires gcloud authentication)
 
         Args:
-            model: Claude model to use
+            model: Claude model to use (required - specify the model available in your environment)
             working_directory: Working directory for commands (optional)
 
         Raises:
@@ -61,7 +61,11 @@ class ConvergenceAgent:
             try:
                 from anthropic import AnthropicVertex
 
-                project_id = os.environ.get("VERTEX_PROJECT_ID")
+                # Support both VERTEX_PROJECT_ID and ANTHROPIC_VERTEX_PROJECT_ID
+                # (Claude Code uses ANTHROPIC_VERTEX_PROJECT_ID)
+                project_id = os.environ.get("VERTEX_PROJECT_ID") or os.environ.get(
+                    "ANTHROPIC_VERTEX_PROJECT_ID"
+                )
                 region = os.environ.get("VERTEX_REGION", "us-east5")
 
                 if not project_id:
@@ -69,8 +73,8 @@ class ConvergenceAgent:
                         "Neither ANTHROPIC_API_KEY nor VERTEX_PROJECT_ID is set. "
                         "Please configure one of:\n"
                         "  - ANTHROPIC_API_KEY for Anthropic API\n"
-                        "  - VERTEX_PROJECT_ID for Google Vertex AI "
-                        "(also run: gcloud auth application-default login)"
+                        "  - VERTEX_PROJECT_ID (or ANTHROPIC_VERTEX_PROJECT_ID) "
+                        "for Google Vertex AI (also run: gcloud auth application-default login)"
                     )
 
                 self.client = AnthropicVertex(project_id=project_id, region=region)
@@ -81,7 +85,7 @@ class ConvergenceAgent:
                     'pip install "anthropic[vertex]" google-cloud-aiplatform'
                 ) from e
 
-    async def invoke(
+    def invoke(
         self,
         system_prompt: str,
         user_message: str,
@@ -105,8 +109,8 @@ class ConvergenceAgent:
 
         # Invoke Claude Code Agent SDK
         # SDK automatically provides whatever tools it wants
-        # Type ignore needed due to Union[Anthropic, Any] client type and async usage
-        response = await self.client.messages.create(  # type: ignore[misc]
+        # Type ignore needed due to Union[Anthropic, Any] client type
+        response = self.client.messages.create(  # type: ignore[misc]
             model=self.model,
             max_tokens=8192,  # Reasonable default for investigation tasks
             system=system_prompt,

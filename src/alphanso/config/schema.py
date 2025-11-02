@@ -43,8 +43,8 @@ class ClaudeAgentConfig(BaseModel):
     """
 
     model: str = Field(
-        default="claude-sonnet-4-5-20250929",
-        description="Claude model identifier",
+        default="claude-sonnet-4-5@20250929",
+        description="Claude model identifier (Vertex AI format)",
     )
     system_prompt: str | None = Field(
         default=None,

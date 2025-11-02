@@ -27,6 +27,10 @@ dev = [
     "isort>=5.13.0",
     "ruff>=0.6.0",
 ]
+vertex = [
+    "anthropic[vertex]>=0.40.0",
+    "google-cloud-aiplatform>=1.38.0",
+]
 
 [project.scripts]
 alphanso = "alphanso.cli:cli"
