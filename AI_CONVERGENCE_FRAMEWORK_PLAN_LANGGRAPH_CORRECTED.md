@@ -69,15 +69,13 @@ Entry Point: alphanso run --config rebase.yaml --var K8S_TAG=v1.35.0
 │       Claude Agent SDK                                      │
 │  (AI Execution with Built-in SDK Tools)                     │
 │                                                              │
-│  SDK Built-in Tools for INVESTIGATION and FIXING:           │
-│  - Bash: Execute ANY command (git, gh, make, grep, etc.)    │
-│  - Read: Read file contents                                 │
-│  - Edit: Edit files by replacing content                    │
-│  - Grep: Search code with regex                             │
-│  - Glob: Find files matching patterns                       │
+│  SDK automatically provides tools for:                      │
+│  - Investigating failures (git commands, file reading)      │
+│  - Applying fixes (file editing, code changes)              │
+│  - Understanding context (searching, finding files)         │
 │                                                              │
-│  These tools help Claude UNDERSTAND and FIX issues,         │
-│  but Claude does NOT run validators (make, make test)       │
+│  SDK handles all tool management automatically.             │
+│  Claude does NOT run validators (make, make test)           │
 └─────────────────────────────────────────────────────────────┘
                       │
                       ▼
@@ -1172,27 +1170,20 @@ validate → decide
 
 ### **STEP 4: Claude Code Agent SDK Integration**
 
-**Goal**: Integrate Claude Code Agent SDK for AI-assisted investigation and fixing using built-in tools
+**Goal**: Integrate Claude Code Agent SDK for AI-assisted investigation and fixing
 
-**CRITICAL CHANGE**: We do NOT create custom tools! Claude Code Agent SDK provides powerful built-in tools that handle all investigation and fixing needs.
+**CRITICAL CHANGE**: We do NOT create custom tools! Claude Code Agent SDK provides built-in tools that handle all investigation and fixing needs.
 
 **Key Insight**:
 - **Before**: Planned to create 9 custom @tool decorated functions
-- **After**: Use SDK's 5 built-in tools (Bash, Read, Edit, Grep, Glob)
-- **Why**: SDK's Bash tool can execute ANY shell command (git, gh, make, etc.), making custom wrappers unnecessary
-
-**SDK Built-in Tools Available**:
-1. **Bash**: Execute any shell command - covers git operations, gh commands, system tools
-2. **Read**: Read file contents with optional line ranges
-3. **Edit**: Edit files by replacing old_string with new_string
-4. **Grep**: Advanced regex search with multiple output modes
-5. **Glob**: Find files matching patterns
+- **After**: Use SDK's built-in tools (whatever the SDK provides)
+- **Why**: SDK provides all necessary tools out of the box, making custom wrappers unnecessary
 
 **Deliverables**:
 - ✅ Claude Agent SDK client wrapper (ConvergenceAgent class)
 - ✅ System prompt builder (explains validation failures to Claude)
 - ✅ User message builder (provides current failure details)
-- ✅ SDK configuration (allowed_tools, permission_mode, working_directory)
+- ✅ SDK configuration (working_directory, model settings)
 - ✅ Async integration for LangGraph ai_fix_node
 
 **Files to Create**:
@@ -1238,45 +1229,32 @@ class ConvergenceAgent:
         self,
         system_prompt: str,
         user_message: str,
-        allowed_tools: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Invoke Claude with validation failure context.
 
-        Claude will use SDK's built-in tools to investigate and fix:
-        - Bash: Execute any command (git, gh, make, etc.)
-        - Read: Read file contents
-        - Edit: Edit files by replacing content
-        - Grep: Search code
-        - Glob: Find files
+        The SDK automatically provides built-in tools for investigation
+        and fixing. We don't specify which tools - let the SDK decide.
 
         Args:
-            system_prompt: Explains validation failures and available tools
+            system_prompt: Explains validation failures to Claude
             user_message: Current validation results
-            allowed_tools: List of SDK tools to enable (default: all)
 
         Returns:
             Response dict with content and tool_calls
         """
-        # Default to all SDK built-in tools
-        if allowed_tools is None:
-            allowed_tools = ["bash", "read", "edit", "grep", "glob"]
-
         # Create messages
         messages = [
             {"role": "user", "content": user_message}
         ]
 
         # Invoke Claude Code Agent SDK
-        # SDK automatically provides the built-in tools
+        # SDK automatically provides whatever tools it wants
         response = await self.client.messages.create_async(
             model=self.model,
             max_tokens=self.max_tokens,
             system=system_prompt,
             messages=messages,
-            # SDK-specific options for tool access
-            tools=[{"type": t} for t in allowed_tools],
-            # Pass working directory for Bash tool
-            tool_choice={"type": "auto"},
+            tool_choice={"type": "auto"},  # Let SDK use whatever tools it provides
         )
 
         # Extract tool calls from response
@@ -1304,10 +1282,9 @@ from alphanso.graph.state import ConvergenceState
 def build_fix_prompt(state: ConvergenceState) -> str:
     """Build system prompt for AI fix node.
 
-    Explains to Claude:
-    - What validators failed (run by framework, not Claude)
-    - What SDK tools are available for investigation
-    - How to use Bash tool for git, gh, make, etc.
+    Explains to Claude what validators failed and that it should
+    use SDK tools to investigate and fix. The SDK provides whatever
+    tools are needed - we don't specify which ones.
     """
     attempt = state["attempt"]
     max_attempts = state["max_attempts"]
@@ -1317,31 +1294,14 @@ def build_fix_prompt(state: ConvergenceState) -> str:
 
 Attempt: {attempt + 1}/{max_attempts}
 
-IMPORTANT: You have access to investigation and fixing tools from Claude Code Agent SDK.
-The framework runs validators (make, make test, etc.) and reports results to you.
-Your job is to investigate WHY they failed and FIX the issues.
+IMPORTANT: The framework runs validators (make, make test, etc.) and reports results to you.
+Your job is to investigate WHY they failed and FIX the issues using the tools available to you.
 
 Failed Validators (run by framework, not you):
 {', '.join(failed)}
 
-Available SDK Tools:
-- **Bash**: Execute ANY shell command
-  - git status, git diff, git blame, git log
-  - gh pr list, gh pr view
-  - make, make test, go test, etc.
-  - grep, find, cat, etc.
-- **Read**: Read file contents (with optional line ranges)
-- **Edit**: Edit files by replacing old_string with new_string
-- **Grep**: Advanced regex search (multiple output modes)
-- **Glob**: Find files matching patterns (e.g., "**/*.go")
-
-Investigation workflow:
-1. Read validation failure output (provided below)
-2. Use Bash tool: git blame, git log to understand context
-3. Use Bash tool: gh pr list, gh pr view to find related changes
-4. Use Read tool to understand code
-5. Use Edit tool to apply fixes
-6. The framework will re-run validators after you're done
+You have access to investigation and fixing tools from the SDK. Use whatever tools are needed
+to understand the failures and apply fixes. The framework will re-run validators after you're done.
 
 Previous attempts:
 """
@@ -1381,42 +1341,31 @@ def build_user_message(state: ConvergenceState) -> str:
 ```
 
 **SDK Configuration Example**:
-```python
-# Example: Configure agent with SDK tools in config file
+```yaml
+# Example: Configure agent in config file
 agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
-
-  # SDK built-in tools to enable
-  allowed_tools:
-    - bash   # Execute any command (git, gh, make, etc.)
-    - read   # Read files
-    - edit   # Edit files
-    - grep   # Search code
-    - glob   # Find files
-
-  # Permission mode for SDK
-  permission_mode: "auto"  # or "ask_user" for manual approval
 ```
 
 **Test Cases**:
 1. ConvergenceAgent wrapper initializes correctly
-2. System prompt explains validators and SDK tools
+2. System prompt explains validation failures
 3. User message includes validation results
-4. SDK's Bash tool can be invoked (git, gh commands)
-5. SDK's Read tool can read files
-6. SDK's Edit tool can edit files
-7. SDK's Grep tool can search code
-8. SDK's Glob tool can find files
-9. Agent response captures tool calls
-10. Working directory is passed to SDK
+4. SDK invocation works correctly
+5. Agent can use SDK tools to investigate
+6. Agent can use SDK tools to fix issues
+7. Tool calls are captured in response
+8. Working directory is passed to SDK
+9. Integration test with real Claude SDK
+10. Agent does NOT have access to validators
 
 **Success Criteria**:
 - ✅ All 10 test cases pass
-- ✅ Claude uses SDK built-in tools, not custom tools
-- ✅ Bash tool covers all git/gh/system commands
+- ✅ Claude uses SDK built-in tools (whatever SDK provides)
+- ✅ No custom tool creation needed
 - ✅ Type checking passes
 - ✅ Code coverage ≥ 85%
 - ✅ SDK integration is simple and maintainable
@@ -1452,16 +1401,12 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
 
     This node:
     1. Uses prompt builders from STEP 4 to explain failures
-    2. Invokes ConvergenceAgent with SDK built-in tools
+    2. Invokes ConvergenceAgent (SDK provides built-in tools automatically)
     3. Tracks tool calls and messages in state
     4. Returns to increment_attempt → validate
 
-    Claude uses SDK tools (Bash, Read, Edit, Grep, Glob) to:
-    - Investigate failures using git commands (via Bash tool)
-    - Read and edit files to fix issues
-    - Search code to understand context
-
     NOTE: Claude does NOT run validators. Framework runs them.
+    The SDK automatically provides whatever tools Claude needs.
     """
     print("\n" + "=" * 70)
     print("NODE: ai_fix")
@@ -1480,12 +1425,10 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
         working_directory=state.get("working_directory"),
     )
 
-    # Invoke Claude with SDK built-in tools
-    # SDK provides: Bash, Read, Edit, Grep, Glob
+    # Invoke Claude (SDK automatically provides tools)
     response = await agent.invoke(
         system_prompt=system_prompt,
         user_message=user_message,
-        allowed_tools=state.get("agent_config", {}).get("allowed_tools"),
     )
 
     # Track what Claude did
@@ -1562,18 +1505,18 @@ def create_convergence_graph() -> ConvergenceGraph:
 1. ai_fix_node invokes ConvergenceAgent correctly
 2. System prompt built from build_fix_prompt()
 3. User message built from build_user_message()
-4. Agent SDK built-in tools are available (Bash, Read, Edit, Grep, Glob)
-5. Bash tool can execute git commands
-6. Read/Edit tools can modify files
-7. Tool calls are tracked in state
-8. Graph flow: validate → decide → ai_fix → increment → validate
-9. Integration test with real Claude SDK
-10. Agent does NOT have access to validators (separation maintained)
+4. Agent can use SDK tools to investigate failures
+5. Agent can use SDK tools to apply fixes
+6. Tool calls are tracked in state
+7. Graph flow: validate → decide → ai_fix → increment → validate
+8. Integration test with real Claude SDK
+9. Agent does NOT have access to validators (separation maintained)
+10. SDK provides tools automatically (no configuration needed)
 
 **Success Criteria**:
 - ✅ All 10 test cases pass
-- ✅ Claude uses SDK built-in tools from STEP 4
-- ✅ Flow is correct: framework validates, Claude fixes (using SDK), framework re-validates
+- ✅ Claude uses SDK built-in tools (whatever SDK provides)
+- ✅ Flow is correct: framework validates, Claude fixes, framework re-validates
 - ✅ Type checking passes
 - ✅ Code coverage ≥ 85%
 - ✅ ai_fix_node slots cleanly into retry loop
@@ -1634,14 +1577,6 @@ agent:
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
-
-  # SDK built-in tools (Bash covers all git/gh/system commands)
-  allowed_tools:
-    - bash   # Execute any command (git, gh, make, grep, find, etc.)
-    - read   # Read file contents
-    - edit   # Edit files
-    - grep   # Search code
-    - glob   # Find files
 
 retry_strategy:
   type: hybrid
@@ -2275,14 +2210,6 @@ agent:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 4096
 
-  # SDK built-in tools
-  allowed_tools:
-    - bash   # Covers git commands
-    - read
-    - edit
-    - grep
-    - glob
-
 retry_strategy:
   type: hybrid
 ```
@@ -2403,14 +2330,6 @@ agent:
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
-
-  # SDK built-in tools (Bash covers all git/gh commands)
-  allowed_tools:
-    - bash   # Execute ANY command (git, gh, make, etc.)
-    - read   # Read file contents
-    - edit   # Edit files
-    - grep   # Search code
-    - glob   # Find files matching patterns
 
 retry_strategy:
   type: hybrid
