@@ -234,10 +234,17 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
             print(f"   - {name}")
     print()
 
+    # Update failure history if validators failed
+    # This ensures every validation attempt is recorded, even the last one
+    updated_history = list(state.get("failure_history", []))
+    if not success:
+        updated_history.append(validation_results)
+
     return {
         "success": success,
         "validation_results": validation_results,
         "failed_validators": failed_validators,
+        "failure_history": updated_history,
     }
 
 
@@ -269,11 +276,58 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
     print("=" * 70)
     print()
 
-    # Placeholder: No decision logic for STEP 1
-    # STEP 3 will implement conditional edges and retry logic
+    # Placeholder: No decision logic yet
+    # Actual routing happens in should_continue() edge function (STEP 3)
     return {}
+
+
+def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
+    """Increment attempt counter for retry loop.
+
+    This node runs after validation failures when retrying.
+    It increments the attempt counter to track loop iterations.
+
+    Note: Failure history is tracked by validate_node, not here.
+    This ensures all validation attempts (including the last one)
+    are recorded in failure_history.
+
+    Args:
+        state: Current convergence state with validation results
+
+    Returns:
+        Partial state update with incremented attempt
+
+    Flow:
+        validate (failed) → decide → retry → increment_attempt → validate
+
+    Example:
+        >>> state = {
+        ...     "attempt": 0,
+        ...     "validation_results": [{"validator_name": "test", "success": False}],
+        ...     "failure_history": []
+        ... }
+        >>> updates = increment_attempt_node(state)
+        >>> updates["attempt"]
+        1
+    """
+    print("\n" + "=" * 70)
+    print("NODE: increment_attempt")
+    print("=" * 70)
+
+    new_attempt = state["attempt"] + 1
+    failure_history = state.get("failure_history", [])
+
+    print(f"📊 Attempt {state['attempt'] + 1} → {new_attempt + 1}")
+    print(f"   Failed validators: {', '.join(state.get('failed_validators', []))}")
+    print(f"   Failure history entries: {len(failure_history)}")
+    print("🔄 Retrying validation...")
+    print("=" * 70)
+    print()
+
+    return {
+        "attempt": new_attempt,
+    }
 
 
 # Additional node functions will be added in future steps:
 # - ai_fix_node (STEP 5) - Invoke Claude agent to fix failures
-# - increment_attempt_node (STEP 3) - Increment attempt counter

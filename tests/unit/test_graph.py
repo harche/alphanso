@@ -263,3 +263,299 @@ class TestGraphStateImmutability:
         # Final state should have updates
         assert final_state["pre_actions_completed"] is True
         assert final_state["success"] is True
+
+
+class TestGraphRetryLoop:
+    """Tests for STEP 3: Retry loop with conditional edges."""
+
+    def test_success_on_first_attempt_goes_to_end(self) -> None:
+        """Test that successful validation on first attempt goes directly to END."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 10,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [],  # No validators = success
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Should succeed on first attempt
+        assert final_state["success"] is True
+        assert final_state["attempt"] == 0  # Never incremented
+        assert len(final_state["failure_history"]) == 0
+
+    def test_failure_with_attempts_remaining_increments(self) -> None:
+        """Test that validation failure with attempts remaining increments attempt."""
+        from alphanso.validators.command import CommandValidator
+
+        graph = create_convergence_graph()
+
+        # Create a failing validator (command that always fails)
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 3,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Always Fail",
+                    "command": "false",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Should fail after max attempts
+        assert final_state["success"] is False
+        assert final_state["attempt"] == 2  # 0-indexed, so 2 = 3rd attempt
+        assert len(final_state["failure_history"]) == 3  # All 3 attempts
+        assert len(final_state["failed_validators"]) > 0
+
+    def test_max_attempts_reached_goes_to_end_failure(self) -> None:
+        """Test that max attempts reached goes to END with failure."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 2,  # Only 2 attempts
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Always Fail",
+                    "command": "false",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Should stop after 2 attempts
+        assert final_state["success"] is False
+        assert final_state["attempt"] == 1  # 0-indexed (attempt 0, 1 = 2 attempts)
+        assert len(final_state["failure_history"]) == 2
+
+    def test_failure_history_tracked_correctly(self) -> None:
+        """Test that failure history accumulates correctly across attempts."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 3,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Failing Test",
+                    "command": "false",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Failure history should have all attempts
+        assert len(final_state["failure_history"]) == 3
+
+        # Each history entry should be a list of ValidationResults
+        for history_entry in final_state["failure_history"]:
+            assert isinstance(history_entry, list)
+            assert len(history_entry) > 0  # Has validation results
+            assert history_entry[0]["validator_name"] == "Failing Test"
+            assert history_entry[0]["success"] is False
+
+    def test_attempt_counter_increments_correctly(self) -> None:
+        """Test that attempt counter increments on each retry."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 5,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Fail",
+                    "command": "exit 1",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # After 5 attempts (0-4), should be at attempt 4
+        assert final_state["attempt"] == 4
+        assert len(final_state["failure_history"]) == 5
+
+    def test_graph_executes_multiple_retry_loops(self) -> None:
+        """Test that graph can execute multiple validation loops."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 4,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Fail",
+                    "command": "false",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Should have looped 4 times
+        # Attempt progression: 0 → 1 → 2 → 3
+        assert final_state["attempt"] == 3
+        assert len(final_state["failure_history"]) == 4
+
+    def test_state_preserved_across_iterations(self) -> None:
+        """Test that state fields are preserved across retry loop iterations."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [],
+            "env_vars": {"CUSTOM_VAR": "preserved_value"},
+            "attempt": 0,
+            "max_attempts": 3,
+            "success": False,
+            "working_directory": "/custom/path",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Fail",
+                    "command": "false",
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Original state fields should be preserved
+        assert final_state["env_vars"]["CUSTOM_VAR"] == "preserved_value"
+        assert final_state["working_directory"] == "/custom/path"
+        assert final_state["max_attempts"] == 3
+
+    def test_should_continue_edge_function_routing(self) -> None:
+        """Test that should_continue() returns correct routing decisions."""
+        from alphanso.graph.edges import should_continue
+
+        # Test success case
+        state_success: ConvergenceState = {
+            "success": True,
+            "attempt": 0,
+            "max_attempts": 10,
+        }
+        assert should_continue(state_success) == "end_success"
+
+        # Test max attempts reached
+        state_max: ConvergenceState = {
+            "success": False,
+            "attempt": 9,
+            "max_attempts": 10,
+        }
+        assert should_continue(state_max) == "end_failure"
+
+        # Test retry case
+        state_retry: ConvergenceState = {
+            "success": False,
+            "attempt": 2,
+            "max_attempts": 10,
+        }
+        assert should_continue(state_retry) == "retry"
+
+    def test_integration_with_failing_validator(self) -> None:
+        """Integration test with real failing validator demonstrating retry loop."""
+        graph = create_convergence_graph()
+
+        initial_state: ConvergenceState = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [
+                {"command": "echo 'Setup complete'", "description": "Setup"}
+            ],
+            "env_vars": {},
+            "attempt": 0,
+            "max_attempts": 3,
+            "success": False,
+            "working_directory": ".",
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "File Check",
+                    "command": "test -f /nonexistent/file.txt",  # Will always fail
+                    "timeout": 10,
+                }
+            ],
+            "validation_results": [],
+            "failed_validators": [],
+            "failure_history": [],
+        }
+
+        final_state = graph.invoke(initial_state)
+
+        # Pre-actions should complete
+        assert final_state["pre_actions_completed"] is True
+        assert len(final_state["pre_action_results"]) == 1
+
+        # Should fail after retries
+        assert final_state["success"] is False
+        assert final_state["attempt"] == 2  # 3 attempts (0, 1, 2)
+        assert len(final_state["failure_history"]) == 3
+        assert "File Check" in final_state["failed_validators"]
