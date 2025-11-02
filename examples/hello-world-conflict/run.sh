@@ -7,16 +7,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Setting up git repositories..."
 bash "${SCRIPT_DIR}/setup.sh"
 
-# Run convergence loop from fork directory
-cd "${SCRIPT_DIR}/git-repos/fork"
-
+# Run convergence loop from example directory
 echo ""
 echo "Running Alphanso convergence loop..."
 echo ""
 
-alphanso run \
-  --config "${SCRIPT_DIR}/config.yaml" \
-  --verbose
+# Run from the example directory (config uses relative path to git-repos/fork)
+cd "${SCRIPT_DIR}"
+uv run alphanso run \
+  --config config.yaml
 
 echo ""
 echo "✅ Example complete!"

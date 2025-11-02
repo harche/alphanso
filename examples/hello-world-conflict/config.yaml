@@ -1,6 +1,9 @@
 name: "Git Merge Conflict Resolution"
 max_attempts: 5
 
+# Working directory - run commands from the fork directory
+working_directory: "git-repos/fork"
+
 # Pre-actions - fetch upstream and attempt merge (will create conflict)
 pre_actions:
   - command: "git fetch upstream"

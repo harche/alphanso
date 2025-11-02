@@ -61,11 +61,19 @@ def run(config: Path, var: tuple[str, ...]) -> None:
 
     # Run convergence using API
     # Note: All output is now printed in real-time by the graph nodes
+    # Don't pass working_directory - let it use config.working_directory
+    # which is resolved relative to the config file location
     try:
+        # Resolve config's working_directory relative to config file location
+        if not Path(config_obj.working_directory).is_absolute():
+            working_dir = config.parent / config_obj.working_directory
+        else:
+            working_dir = Path(config_obj.working_directory)
+
         result = run_convergence(
             config=config_obj,
             env_vars=env_vars,
-            working_directory=config.parent.absolute(),
+            working_directory=working_dir.absolute(),
         )
     except Exception as e:
         click.echo(f"Error running convergence: {e}", err=True)

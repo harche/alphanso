@@ -71,8 +71,8 @@ EOF
 git add README.md
 git commit -m "Fork-specific changes"
 
-# Add upstream as remote
-git remote add upstream ../upstream
+# Add upstream as remote (use absolute path so it works from any directory)
+git remote add upstream "${REPOS_DIR}/upstream"
 
 echo ""
 echo "✅ Git repositories created:"
