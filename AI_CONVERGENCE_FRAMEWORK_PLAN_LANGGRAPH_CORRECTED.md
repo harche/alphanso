@@ -1184,6 +1184,7 @@ validate → decide
 - ✅ System prompt builder (explains validation failures to Claude)
 - ✅ User message builder (provides current failure details)
 - ✅ SDK configuration (working_directory, model settings)
+- ✅ Custom system prompt support (user defines agent role/task)
 - ✅ Async integration for LangGraph ai_fix_node
 
 **Files to Create**:
@@ -1279,20 +1280,35 @@ class ConvergenceAgent:
 # src/alphanso/agent/prompts.py
 from alphanso.graph.state import ConvergenceState
 
-def build_fix_prompt(state: ConvergenceState) -> str:
+def build_fix_prompt(
+    state: ConvergenceState,
+    custom_prompt: str | None = None
+) -> str:
     """Build system prompt for AI fix node.
 
-    Explains to Claude what validators failed and that it should
-    use SDK tools to investigate and fix. The SDK provides whatever
-    tools are needed - we don't specify which ones.
+    Optionally starts with custom prompt defining agent's role/task,
+    then adds convergence loop context with validation failures.
+
+    Args:
+        state: Current convergence state
+        custom_prompt: Optional custom prompt defining agent role/task
+                      (e.g., "You are a Kubernetes rebasing agent...")
+
+    Returns:
+        Complete system prompt with custom prefix + convergence context
     """
+    # Start with custom prompt if provided
+    if custom_prompt:
+        prompt = custom_prompt.strip() + "\n\n---\n\n"
+    else:
+        prompt = ""
+
+    # Add convergence loop context
     attempt = state["attempt"]
     max_attempts = state["max_attempts"]
     failed = state["failed_validators"]
 
-    prompt = f"""You are helping fix validation failures in a convergence loop.
-
-Attempt: {attempt + 1}/{max_attempts}
+    prompt += f"""Attempt: {attempt + 1}/{max_attempts}
 
 IMPORTANT: The framework runs validators (make, make test, etc.) and reports results to you.
 Your job is to investigate WHY they failed and FIX the issues using the tools available to you.
@@ -1340,14 +1356,121 @@ def build_user_message(state: ConvergenceState) -> str:
     return message
 ```
 
-**SDK Configuration Example**:
+**Configuration Schema** (Pydantic):
+```python
+# src/alphanso/config/schema.py
+from pydantic import BaseModel, Field
+
+class ClaudeAgentConfig(BaseModel):
+    """Configuration for Claude Agent SDK."""
+    model: str = Field(default="claude-sonnet-4-5-20250929")
+    max_tokens: int = Field(default=8192)
+    system_prompt: str | None = Field(
+        default=None,
+        description="Custom system prompt defining agent's role and task"
+    )
+    # Note: system_prompt_file is NOT in schema - only processed by from_yaml()
+
+class ConvergenceConfig(BaseModel):
+    """Main configuration for convergence loop."""
+    name: str
+    max_attempts: int = 10
+    agent: ClaudeAgentConfig
+    # ... other fields ...
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> "ConvergenceConfig":
+        """Load configuration from YAML file.
+
+        Handles system_prompt_file processing BEFORE validation:
+        - Reads file referenced by system_prompt_file
+        - Replaces with system_prompt field containing file content
+        - Removes system_prompt_file before validation
+        """
+        path_obj = Path(path)
+        if not path_obj.exists():
+            raise FileNotFoundError(f"Configuration file not found: {path}")
+
+        with open(path_obj) as f:
+            data = yaml.safe_load(f)
+
+        # Process system_prompt_file BEFORE validation
+        if "agent" in data and "claude" in data["agent"]:
+            claude_config = data["agent"]["claude"]
+
+            if "system_prompt_file" in claude_config:
+                prompt_file = claude_config["system_prompt_file"]
+                prompt_path = Path(prompt_file)
+
+                # Resolve relative to config file location
+                if not prompt_path.is_absolute():
+                    prompt_path = path_obj.parent / prompt_path
+
+                # Read file and replace with content
+                with open(prompt_path) as f:
+                    claude_config["system_prompt"] = f.read()
+
+                # Remove file reference before validation
+                del claude_config["system_prompt_file"]
+
+        return cls.model_validate(data)
+```
+
+**YAML Configuration Example** (with file reference):
 ```yaml
-# Example: Configure agent in config file
+# config.yaml - CLI/YAML users reference prompt file
 agent:
   type: "claude-agent-sdk"
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
+    system_prompt_file: "prompts/kubernetes-rebase.txt"  # File reference
+```
+
+**API Configuration Example** (with direct text):
+```python
+# Programmatic API usage - pass prompt text directly
+from alphanso.config.schema import ConvergenceConfig, ClaudeAgentConfig
+
+config = ConvergenceConfig(
+    name="My Convergence Loop",
+    max_attempts=10,
+    agent=ClaudeAgentConfig(
+        model="claude-sonnet-4-5-20250929",
+        max_tokens=8192,
+        system_prompt="""You are a Kubernetes rebasing agent.
+
+Your task is to help rebase the OpenShift fork of Kubernetes with upstream changes.
+This involves resolving merge conflicts, fixing API breakages, and ensuring all tests pass.
+
+Key responsibilities:
+- Investigate validation failures (build errors, test failures, conflicts)
+- Apply fixes using available tools
+- Maintain OpenShift-specific patches and customizations
+- Ensure compatibility with the target Kubernetes version"""
+    ),
+    validators=[...],
+    # ... other fields ...
+)
+```
+
+**Example Prompt File** (`prompts/kubernetes-rebase.txt`):
+```
+You are a Kubernetes rebasing agent.
+
+Your task is to help rebase the OpenShift fork of Kubernetes with upstream changes.
+This involves resolving merge conflicts, fixing API breakages, and ensuring all tests pass.
+
+Key responsibilities:
+- Investigate validation failures (build errors, test failures, conflicts)
+- Apply fixes using available tools
+- Maintain OpenShift-specific patches and customizations
+- Ensure compatibility with the target Kubernetes version
+
+Context:
+- Upstream: github.com/kubernetes/kubernetes
+- Fork: github.com/openshift/kubernetes
+- Goal: Sync OpenShift fork with upstream release tag
 ```
 
 **Test Cases**:
@@ -1361,11 +1484,18 @@ agent:
 8. Working directory is passed to SDK
 9. Integration test with real Claude SDK
 10. Agent does NOT have access to validators
+11. Custom system_prompt is prepended to convergence context
+12. from_yaml() reads system_prompt_file and converts to system_prompt
+13. File paths resolved relative to config file location
+14. system_prompt_file removed from config after processing
+15. API usage with direct system_prompt text works
 
 **Success Criteria**:
-- ✅ All 10 test cases pass
+- ✅ All 15 test cases pass
 - ✅ Claude uses SDK built-in tools (whatever SDK provides)
 - ✅ No custom tool creation needed
+- ✅ Custom system prompt support works for both YAML and API
+- ✅ system_prompt_file is processed correctly by from_yaml()
 - ✅ Type checking passes
 - ✅ Code coverage ≥ 85%
 - ✅ SDK integration is simple and maintainable
@@ -1414,14 +1544,19 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
     print("Invoking Claude Agent SDK to investigate and fix failures...")
     print()
 
+    # Extract custom prompt from agent config (if provided)
+    agent_config = state.get("agent_config", {})
+    custom_prompt = agent_config.get("system_prompt")
+
     # Build prompts (from STEP 4)
-    system_prompt = build_fix_prompt(state)
+    # Custom prompt is prepended to convergence context
+    system_prompt = build_fix_prompt(state, custom_prompt=custom_prompt)
     user_message = build_user_message(state)
 
     # Initialize agent (from STEP 4)
     agent = ConvergenceAgent(
-        model=state.get("agent_config", {}).get("model", "claude-sonnet-4-5-20250929"),
-        max_tokens=state.get("agent_config", {}).get("max_tokens", 8192),
+        model=agent_config.get("model", "claude-sonnet-4-5-20250929"),
+        max_tokens=agent_config.get("max_tokens", 8192),
         working_directory=state.get("working_directory"),
     )
 
@@ -1577,6 +1712,7 @@ agent:
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
+    system_prompt_file: "prompts/kubernetes-rebase.txt"  # Custom agent role/task
 
 retry_strategy:
   type: hybrid
@@ -2330,6 +2466,7 @@ agent:
   claude:
     model: "claude-sonnet-4-5-20250929"
     max_tokens: 8192
+    system_prompt_file: "prompts/kubernetes-rebase.txt"  # Define agent role/task
 
 retry_strategy:
   type: hybrid
