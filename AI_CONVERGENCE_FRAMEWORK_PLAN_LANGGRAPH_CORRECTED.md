@@ -1186,6 +1186,7 @@ validate → decide
 - ✅ SDK configuration (working_directory, model settings)
 - ✅ Custom system prompt support (user defines agent role/task)
 - ✅ Async integration for LangGraph ai_fix_node
+- ✅ Hello-world example (git conflict resolution with Claude)
 
 **Files to Create**:
 - `src/alphanso/agent/__init__.py` - Package initialization
@@ -1193,6 +1194,11 @@ validate → decide
 - `src/alphanso/agent/prompts.py` - Prompt builders
 - `tests/unit/test_agent_client.py` - Unit tests for client wrapper
 - `tests/integration/test_claude_sdk.py` - Integration tests with real SDK
+- `examples/hello-world-conflict/setup.sh` - Creates git repos with conflict
+- `examples/hello-world-conflict/config.yaml` - Example configuration
+- `examples/hello-world-conflict/prompts/conflict-resolver.txt` - Custom prompt
+- `examples/hello-world-conflict/run.sh` - Runs the example
+- `examples/hello-world-conflict/README.md` - Example documentation
 
 **Claude Agent SDK Client Wrapper**:
 ```python
@@ -1466,6 +1472,237 @@ Context:
 - Goal: Sync OpenShift fork with upstream release tag
 ```
 
+**Hello-World Example** (Git Conflict Resolution):
+
+Demonstrate Claude Code Agent SDK resolving a simple merge conflict.
+
+**Files to Create**:
+- `examples/hello-world-conflict/setup.sh` - Creates git repos with merge conflict
+- `examples/hello-world-conflict/config.yaml` - Configuration for conflict resolution
+- `examples/hello-world-conflict/prompts/conflict-resolver.txt` - Custom prompt
+- `examples/hello-world-conflict/run.sh` - Executes the example
+- `examples/hello-world-conflict/README.md` - Documentation
+
+**Directory Structure**:
+```
+examples/hello-world-conflict/
+├── config.yaml              # Convergence configuration
+├── prompts/
+│   └── conflict-resolver.txt  # Custom system prompt
+├── setup.sh                 # Creates git conflict scenario
+├── run.sh                   # Runs the example
+├── README.md                # Documentation
+└── .gitignore               # Ignore git-repos/
+```
+
+**Setup Script** (`setup.sh`):
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOS_DIR="${SCRIPT_DIR}/git-repos"
+
+# Clean up any existing repos
+rm -rf "${REPOS_DIR}"
+mkdir -p "${REPOS_DIR}"
+
+echo "Creating git repositories with merge conflict..."
+
+# Create upstream repo
+cd "${REPOS_DIR}"
+mkdir upstream
+cd upstream
+git init
+git config user.name "Upstream Dev"
+git config user.email "upstream@example.com"
+
+# Create initial file
+cat > README.md <<'EOF'
+# Hello World Project
+
+Version: 1.0.0
+
+## Features
+- Feature A
+- Feature B
+EOF
+
+git add README.md
+git commit -m "Initial commit"
+git tag v1.0.0
+
+# Modify in upstream (version 2.0.0)
+cat > README.md <<'EOF'
+# Hello World Project
+
+Version: 2.0.0
+
+## Features
+- Feature A (enhanced)
+- Feature B (enhanced)
+- Feature C (new)
+EOF
+
+git add README.md
+git commit -m "Update to v2.0.0"
+git tag v2.0.0
+
+# Create fork repo
+cd "${REPOS_DIR}"
+git clone upstream fork
+cd fork
+git config user.name "Fork Dev"
+git config user.email "fork@example.com"
+
+# Make conflicting changes in fork
+cat > README.md <<'EOF'
+# Hello World Project - Forked Edition
+
+Version: 1.0.0-fork
+
+## Features
+- Feature A (fork-specific)
+- Feature B (fork-specific)
+- Feature D (fork-only)
+EOF
+
+git add README.md
+git commit -m "Fork-specific changes"
+
+# Add upstream as remote
+git remote add upstream ../upstream
+
+echo ""
+echo "✅ Git repositories created:"
+echo "   - Upstream: ${REPOS_DIR}/upstream (v2.0.0)"
+echo "   - Fork: ${REPOS_DIR}/fork (with conflicting changes)"
+echo ""
+echo "To create the conflict, run:"
+echo "   cd ${REPOS_DIR}/fork"
+echo "   git fetch upstream"
+echo "   git merge v2.0.0  # This will create a merge conflict"
+```
+
+**Configuration** (`config.yaml`):
+```yaml
+name: "Git Merge Conflict Resolution"
+max_attempts: 5
+
+# Pre-actions - fetch upstream and attempt merge (will create conflict)
+pre_actions:
+  - command: "git fetch upstream"
+    description: "Fetch upstream changes"
+
+  - command: "git merge v2.0.0 || true"
+    description: "Attempt merge (will conflict)"
+
+# Validators - check for conflicts
+validators:
+  - type: git-conflict
+    name: "Git Conflict Check"
+    timeout: 10
+
+# Agent configuration
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+    system_prompt_file: "prompts/conflict-resolver.txt"
+
+retry_strategy:
+  type: hybrid
+```
+
+**Custom Prompt** (`prompts/conflict-resolver.txt`):
+```
+You are a git merge conflict resolution assistant.
+
+Your task is to resolve merge conflicts that occur when merging upstream changes
+into a forked repository. You should:
+
+1. Understand the conflicting changes from both upstream and fork
+2. Preserve important fork-specific modifications
+3. Integrate new upstream features appropriately
+4. Create a clean, well-formatted resolution
+5. Complete the merge by staging resolved files and committing
+
+Guidelines:
+- Carefully read conflict markers (<<<<<<, ======, >>>>>>)
+- Preserve the intent of both sets of changes when possible
+- Use descriptive merge commit messages
+- Ensure the final result is clean and readable
+```
+
+**Run Script** (`run.sh`):
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Run setup first
+echo "Setting up git repositories..."
+bash "${SCRIPT_DIR}/setup.sh"
+
+# Run convergence loop from fork directory
+cd "${SCRIPT_DIR}/git-repos/fork"
+
+echo ""
+echo "Running Alphanso convergence loop..."
+echo ""
+
+alphanso run \
+  --config "${SCRIPT_DIR}/config.yaml" \
+  --verbose
+
+echo ""
+echo "✅ Example complete!"
+echo ""
+echo "Check the resolved conflict in:"
+echo "   ${SCRIPT_DIR}/git-repos/fork/README.md"
+```
+
+**Expected Behavior**:
+```
+1. Pre-actions phase:
+   [1/2] Fetch upstream changes → ✅ Success
+   [2/2] Attempt merge (will conflict) → ✅ Success (|| true allows failure)
+
+2. Validation phase (Attempt 1):
+   [1/1] Git Conflict Check → ❌ Failed
+
+   Decision: RETRY (validators failed, attempts remain)
+
+3. AI Fix phase:
+   NODE: ai_fix
+   Invoking Claude Agent SDK to investigate and fix failures...
+
+   Custom prompt loaded: conflict-resolver.txt
+
+   Claude investigates:
+   - Uses Bash tool: git status
+   - Uses Read tool: README.md (sees conflict markers)
+   - Uses Bash tool: git diff
+
+   Claude resolves:
+   - Uses Edit tool: removes conflict markers, merges changes
+   - Uses Bash tool: git add README.md
+   - Uses Bash tool: git commit -m "Merge v2.0.0: integrate upstream changes"
+
+   ✅ Claude used 7 SDK tools
+
+4. Validation phase (Attempt 2):
+   [1/1] Git Conflict Check → ✅ Success
+
+   Decision: END with success
+
+5. Result:
+   ✅ All validators PASSED
+   Completed in 2 attempts
+   Total duration: ~30 seconds
+```
+
 **Test Cases**:
 1. ConvergenceAgent wrapper initializes correctly
 2. System prompt explains validation failures
@@ -1482,13 +1719,17 @@ Context:
 13. File paths resolved relative to config file location
 14. system_prompt_file removed from config after processing
 15. API usage with direct system_prompt text works
+16. Hello-world example setup creates git repos with conflict
+17. Hello-world example runs end-to-end successfully
+18. Claude resolves merge conflict using SDK tools (Read, Edit, Bash)
 
 **Success Criteria**:
-- ✅ All 15 test cases pass
+- ✅ All 18 test cases pass
 - ✅ Claude uses SDK built-in tools (whatever SDK provides)
 - ✅ No custom tool creation needed
 - ✅ Custom system prompt support works for both YAML and API
 - ✅ system_prompt_file is processed correctly by from_yaml()
+- ✅ Hello-world example demonstrates end-to-end conflict resolution
 - ✅ Type checking passes
 - ✅ Code coverage ≥ 85%
 - ✅ SDK integration is simple and maintainable
