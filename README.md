@@ -87,40 +87,59 @@ cd alphanso
 uv sync
 
 # Run the hello world example
+uv run python examples/hello-world/run.py
+
+# Or use the CLI
 uv run alphanso run --config examples/hello-world/config.yaml
 ```
 
 This example demonstrates:
+- **LangGraph state machine**: See all 3 nodes executing (pre_actions → validate → decide)
 - Loading configuration from YAML
 - Running pre-actions with variable substitution
-- Handling results and displaying output
+- Complete workflow visibility from START to END
 
 **No external dependencies required** - just basic shell commands!
 
-**Expected Output**:
+**Expected Output** (showing LangGraph nodes):
 ```
-============================================================
-Running: Hello World Example
-============================================================
+Loading configuration from: examples/hello-world/config.yaml
 
-Executing pre-actions...
+======================================================================
+NODE: pre_actions
+======================================================================
+Running pre-actions to set up environment...
 
-============================================================
-Results:
-============================================================
+[1/5] Initialize environment
+     ✅ Success
+     │ Step 1: Setting up environment...
 
-✅ SUCCESS: Initialize environment
-  │ Step 1: Setting up environment...
+[2/5] Create directories
+     ✅ Success
+     │ Step 2: Creating directories...
 
-✅ SUCCESS: Create directories
-  │ Step 2: Creating directories...
+[3/5] Create output directory
+     ✅ Success
 
-✅ SUCCESS: Create output directory
+[4/5] Write greeting file
+     ✅ Success
 
-✅ SUCCESS: Write greeting file
+[5/5] Display greeting
+     ✅ Success
+     │ Hello! Current time is 2025-11-02 08:05:35
 
-✅ SUCCESS: Display greeting
-  │ Hello! Current time is 2025-11-02 05:46:17
+======================================================================
+NODE: validate
+======================================================================
+Running validators (placeholder - STEP 2 will implement)...
+✅ Validation PASSED (all validators will be added in STEP 2)
+
+======================================================================
+NODE: decide
+======================================================================
+Making decision (placeholder - STEP 3 will implement retry logic)...
+✅ Decision: END (no retry loop yet)
+======================================================================
 
 ============================================================
 ✅ All pre-actions completed successfully!
@@ -199,6 +218,22 @@ The `run_convergence()` function returns a `ConvergenceResult` with:
 - **Dependency Upgrade**: Coming soon - Automated dependency updates
 
 ## 🏗️ Architecture
+
+### LangGraph State Machine
+
+Alphanso uses [LangGraph](https://github.com/langchain-ai/langgraph) for workflow orchestration, providing a robust state machine for the convergence loop. The framework follows a graph-based architecture:
+
+- **State Management**: TypedDict-based state flows through graph nodes
+- **Node Functions**: Pure functions that return partial state updates
+- **Graph Compilation**: LangGraph compiles the workflow into an optimized execution graph
+- **Type Safety**: Full mypy strict typing with proper LangGraph generics
+
+**Current Graph Structure** (STEP 1):
+```
+START → pre_actions → validate → decide → END
+```
+
+Future steps will add conditional edges for retry loops and AI-powered fixing.
 
 ### Agent Configuration
 
@@ -291,19 +326,24 @@ uv run ruff check src/ tests/
 
 ## 📊 Current Status
 
-**Pre-Actions System** ✅
+**STEP 0: Pre-Actions System** ✅ **COMPLETE**
 
-- ✅ PreAction class with variable substitution
+- ✅ PreAction class with variable substitution and working directory support
 - ✅ Pydantic configuration schema with Claude Agent SDK & OpenAI Agent SDK support
-- ✅ State management and workflow nodes
 - ✅ Public API with `run_convergence()` function
 - ✅ CLI interface with `alphanso run` command (thin wrapper over API)
-- ✅ Comprehensive test suite (55 tests, 96.88% coverage)
-- ✅ Full type checking with mypy --strict
-- ✅ Code formatting and linting
 - ✅ Professional development tooling
 
-### Test Coverage
+**STEP 1: State Schema & Graph Structure** ✅ **COMPLETE**
+
+- ✅ Complete ConvergenceState TypedDict with all fields (pre-actions, validation, AI, metadata)
+- ✅ ValidationResult TypedDict for validator outputs
+- ✅ LangGraph integration with StateGraph and graph compilation
+- ✅ Graph builder with linear flow: START → pre_actions → validate → decide → END
+- ✅ Placeholder nodes for validate and decide (ready for STEP 2 & 3)
+- ✅ Full mypy --strict typing with proper LangGraph generics
+
+**Test Coverage**: 76 tests, 97.33% coverage
 
 ```
 Name                                  Stmts   Miss   Cover
@@ -312,21 +352,22 @@ src/alphanso/actions/pre_actions.py      31      0  100.00%
 src/alphanso/api.py                      31      0   97.14%
 src/alphanso/cli.py                      54      1   97.14%
 src/alphanso/config/schema.py            41      0  100.00%
-src/alphanso/graph/nodes.py              20      1   90.00%
-src/alphanso/graph/state.py              11      0  100.00%
+src/alphanso/graph/builder.py            14      0  100.00%
+src/alphanso/graph/nodes.py              24      1   91.18%
+src/alphanso/graph/state.py              31      0  100.00%
 ---------------------------------------------------------
-TOTAL                                   190      3   96.88%
+TOTAL                                   228      3   97.33%
 ```
 
 ## 🗺️ Roadmap
 
-Alphanso is under active development. The Pre-Actions System (foundation) is complete and production-ready. The next phases will add the convergence loop, validators, and AI agent integration.
+Alphanso is under active development. STEP 0 (Pre-Actions) and STEP 1 (Graph Structure) are complete and production-ready. The next phases will add validators, retry logic, and AI agent integration.
 
 ### Core Framework
-- [x] **Pre-Actions System** ✅ - Commands that run once before convergence
-- [ ] **State Schema & Graph Structure** - Complete workflow orchestration
-- [ ] **Validator System** - Build, test, and conflict detection
-- [ ] **Retry Loop & Conditional Edges** - Intelligent iteration control
+- [x] **STEP 0: Pre-Actions System** ✅ - Commands that run once before convergence
+- [x] **STEP 1: State Schema & Graph Structure** ✅ - LangGraph workflow orchestration
+- [ ] **STEP 2: Validator System** - Build, test, and conflict detection
+- [ ] **STEP 3: Retry Loop & Conditional Edges** - Intelligent iteration control
 - [ ] **Investigation & Fixing Tools** - AI-powered problem analysis
 - [ ] **AI Agent Integration** - Claude/OpenAI agent orchestration
 - [ ] **Extended Configuration System** - Advanced workflow options

@@ -85,7 +85,8 @@ retry_strategy:
 
             # Should succeed
             assert result.exit_code == 0
-            assert "Test Config" in result.output
+            assert "NODE: pre_actions" in result.output
+            assert "Test command" in result.output
             assert "✅" in result.output
             assert "All pre-actions completed successfully" in result.output
         finally:

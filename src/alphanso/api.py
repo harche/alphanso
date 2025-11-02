@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from alphanso.config.schema import ConvergenceConfig
-from alphanso.graph.nodes import pre_actions_node
+from alphanso.graph.builder import create_convergence_graph
 from alphanso.graph.state import ConvergenceState
 
 
@@ -79,7 +79,7 @@ def run_convergence(
     config = ConvergenceConfig.from_yaml(config_path_obj)
 
     # Create initial state
-    state: ConvergenceState = {
+    initial_state: ConvergenceState = {
         "pre_actions_completed": False,
         "pre_actions_config": [
             {"command": action.command, "description": action.description}
@@ -93,11 +93,9 @@ def run_convergence(
         "working_directory": str(config_path_obj.parent.absolute()),
     }
 
-    # Execute pre-actions
-    updates = pre_actions_node(state)
-
-    # Merge updates into state (since pre_actions_node returns partial updates)
-    final_state = {**state, **updates}
+    # Create and execute convergence graph
+    graph = create_convergence_graph()
+    final_state = graph.invoke(initial_state)
 
     # Determine overall success (all pre-actions succeeded)
     all_success = all(

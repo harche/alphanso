@@ -52,45 +52,12 @@ def run(config: Path, var: tuple[str, ...]) -> None:
     click.echo()
 
     # Run convergence using API
+    # Note: All output is now printed in real-time by the graph nodes
     try:
         result = run_convergence(config_path=config, env_vars=env_vars)
     except Exception as e:
         click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)
-
-    # Display running header
-    click.echo("=" * 60)
-    click.echo(f"Running: {result['config_name']}")
-    click.echo("=" * 60)
-    click.echo()
-
-    # Display execution message
-    click.echo("Executing pre-actions...")
-    click.echo()
-
-    # Display results
-    click.echo()
-    click.echo("=" * 60)
-    click.echo("Results:")
-    click.echo("=" * 60)
-    click.echo()
-
-    for action_result in result["pre_action_results"]:
-        if action_result["success"]:
-            click.echo(f"✅ SUCCESS: {action_result['action']}")
-        else:
-            click.echo(f"❌ FAILED: {action_result['action']}")
-
-        # Show output if present
-        if action_result["output"]:
-            for line in action_result["output"].strip().split("\n"):
-                click.echo(f"  │ {line}")
-
-        # Show errors if failed
-        if not action_result["success"] and action_result["stderr"]:
-            click.echo(f"  └─ Error: {action_result['stderr']}")
-
-        click.echo()
 
     # Summary
     click.echo("=" * 60)

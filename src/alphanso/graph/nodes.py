@@ -40,6 +40,12 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     if state.get("pre_actions_completed", False):
         return {}
 
+    print("\n" + "=" * 70)
+    print("NODE: pre_actions")
+    print("=" * 70)
+    print("Running pre-actions to set up environment...")
+    print()
+
     results: list[PreActionResult] = []
 
     # Get environment variables and working directory from state
@@ -51,22 +57,31 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         env_vars.setdefault("WORKING_DIR", working_dir)
 
     # Run each pre-action
-    for action_config in state.get("pre_actions_config", []):
+    for idx, action_config in enumerate(state.get("pre_actions_config", []), 1):
         pre_action = PreAction(
             command=action_config.get("command", ""),
             description=action_config.get("description", ""),
         )
 
+        # Show what we're running
+        print(f"[{idx}/{len(state.get('pre_actions_config', []))}] {pre_action.description}")
+
         result = pre_action.run(env_vars, working_dir=working_dir)
         results.append(result)
 
-        # Log but continue even on failures
-        # The framework will catch these in the validation phase
-        if not result["success"]:
-            # In a real implementation, this would use proper logging
-            print(f"⚠️  Pre-action failed: {result['action']}")
+        # Show result
+        if result["success"]:
+            print(f"     ✅ Success")
+            if result["output"]:
+                # Show first line of output if available
+                first_line = result["output"].strip().split("\n")[0]
+                if first_line:
+                    print(f"     │ {first_line}")
+        else:
+            print(f"     ❌ Failed")
             if result["stderr"]:
-                print(f"   {result['stderr'][:200]}")
+                print(f"     │ {result['stderr'][:200]}")
+        print()
 
     # Return state updates (LangGraph will merge these)
     return {
@@ -75,8 +90,77 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
+def validate_node(state: ConvergenceState) -> dict[str, Any]:
+    """Run validators to check current state.
+
+    This is a placeholder for STEP 1. In STEP 2, this will:
+    - Execute all configured validators (build, test, conflict checks, etc.)
+    - Capture results and failures
+    - Update validation_results and failed_validators
+
+    For now, it simply marks validation as successful.
+
+    Args:
+        state: Current convergence state
+
+    Returns:
+        Updated state with validation results
+
+    Example:
+        >>> state = {"attempt": 0}
+        >>> updates = validate_node(state)
+        >>> updates["success"]
+        True
+    """
+    print("\n" + "=" * 70)
+    print("NODE: validate")
+    print("=" * 70)
+    print("Running validators (placeholder - STEP 2 will implement)...")
+    print("✅ Validation PASSED (all validators will be added in STEP 2)")
+    print()
+
+    # Placeholder: Always succeed for STEP 1
+    # STEP 2 will implement actual validator execution
+    return {
+        "success": True,
+        "validation_results": [],
+        "failed_validators": [],
+    }
+
+
+def decide_node(state: ConvergenceState) -> dict[str, Any]:
+    """Decide whether to continue, retry, or end.
+
+    This is a placeholder for STEP 1. In STEP 3, this will implement
+    conditional logic to determine the next step based on validation results.
+
+    For now, it returns an empty dict (no state updates).
+
+    Args:
+        state: Current convergence state
+
+    Returns:
+        Empty dict (no updates for STEP 1)
+
+    Example:
+        >>> state = {"success": True}
+        >>> updates = decide_node(state)
+        >>> updates
+        {}
+    """
+    print("\n" + "=" * 70)
+    print("NODE: decide")
+    print("=" * 70)
+    print("Making decision (placeholder - STEP 3 will implement retry logic)...")
+    print("✅ Decision: END (no retry loop yet)")
+    print("=" * 70)
+    print()
+
+    # Placeholder: No decision logic for STEP 1
+    # STEP 3 will implement conditional edges and retry logic
+    return {}
+
+
 # Additional node functions will be added in future steps:
-# - validate_node (STEP 2)
-# - decide_node (STEP 3)
-# - ai_fix_node (STEP 5)
-# - increment_attempt_node (STEP 3)
+# - ai_fix_node (STEP 5) - Invoke Claude agent to fix failures
+# - increment_attempt_node (STEP 3) - Increment attempt counter

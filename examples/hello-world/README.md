@@ -11,17 +11,7 @@ This is a simple example demonstrating Alphanso's pre-actions system without any
 
 ## Running the Example
 
-### Using the CLI (recommended):
-
-```bash
-# From the project root
-uv run alphanso run --config examples/hello-world/config.yaml
-
-# Or from this directory
-uv run alphanso run --config config.yaml
-```
-
-### Using the Python script directly:
+### Using the Python script:
 
 ```bash
 # From this directory
@@ -31,49 +21,90 @@ uv run python run.py
 uv run python examples/hello-world/run.py
 ```
 
+### Using the CLI:
+
+```bash
+# From the project root
+uv run alphanso run --config examples/hello-world/config.yaml
+
+# Or from this directory
+uv run alphanso run --config config.yaml
+```
+
+Both approaches show the LangGraph node execution
+
 ## Expected Output
 
 ```
-Loading configuration from: .../examples/hello-world/config.yaml
+Loading configuration from: /Users/.../examples/hello-world/config.yaml
 
-============================================================
-Running: Hello World Example
-============================================================
+======================================================================
+NODE: pre_actions
+======================================================================
+Running pre-actions to set up environment...
 
-Executing pre-actions...
+[1/5] Initialize environment
+     ✅ Success
+     │ Step 1: Setting up environment...
 
-============================================================
-Results:
-============================================================
+[2/5] Create directories
+     ✅ Success
+     │ Step 2: Creating directories...
 
-✅ SUCCESS: Initialize environment
-  │ Step 1: Setting up environment...
+[3/5] Create output directory
+     ✅ Success
 
-✅ SUCCESS: Create directories
-  │ Step 2: Creating directories...
+[4/5] Write greeting file
+     ✅ Success
 
-✅ SUCCESS: Create output directory
+[5/5] Display greeting
+     ✅ Success
+     │ Hello! Current time is 2025-11-02 08:05:35
 
-✅ SUCCESS: Write greeting file
+======================================================================
+NODE: validate
+======================================================================
+Running validators (placeholder - STEP 2 will implement)...
+✅ Validation PASSED (all validators will be added in STEP 2)
 
-✅ SUCCESS: Display greeting
-  │ Hello! Current time is 2025-01-15 14:30:00
+======================================================================
+NODE: decide
+======================================================================
+Making decision (placeholder - STEP 3 will implement retry logic)...
+✅ Decision: END (no retry loop yet)
+======================================================================
 
 ============================================================
 ✅ All pre-actions completed successfully!
 ============================================================
 ```
 
+**Key Output**: Notice the LangGraph nodes executing in sequence:
+- **NODE: pre_actions** - Sets up environment
+- **NODE: validate** - Runs validators (placeholder in STEP 1)
+- **NODE: decide** - Makes decision (placeholder in STEP 1)
+
+This demonstrates the complete state machine workflow!
+
 ## What You'll Learn
 
 This example demonstrates:
 
-- **Configuration Loading**: Loading YAML configuration with `ConvergenceConfig.from_yaml()`
-- **State Management**: Creating and passing state through the workflow
+- **LangGraph State Machine**: See the complete graph workflow with all nodes executing
+- **Graph Structure**: START → pre_actions → validate → decide → END
+- **Node Execution**: Watch each node execute in sequence with state updates
+- **Configuration Loading**: Loading YAML configuration files
 - **Pre-Actions**: Running setup commands before the main convergence loop
-- **Variable Substitution**: Using `${CURRENT_TIME}` to inject environment variables
+- **Variable Substitution**: Using `${CURRENT_TIME}` to inject environment variables dynamically
+- **State Management**: How state flows through the graph with partial updates
 - **Result Handling**: Checking success/failure of each action
-- **Error Reporting**: Capturing stdout and stderr from commands
+
+**Key Insights**:
+- Uses `create_convergence_graph()` to build the LangGraph state machine
+- Nodes print their execution showing the graph flow visually
+- Each node (pre_actions, validate, decide) executes and updates state
+- Demonstrates placeholder nodes that will be implemented in future steps
+- Shows the complete workflow from start to finish with full visibility
 
 ## Next Steps
 
