@@ -57,8 +57,6 @@ Apply security patches while automatically fixing resulting regressions.
 - **Variable Substitution**: Dynamic environment variable injection in commands
 - **Type-Safe Configuration**: Pydantic-based YAML configuration with validation
 - **LangGraph Workflow**: State machine orchestration with visual execution flow
-- **Flexible Architecture**: Extensible workflow with state management
-- **Professional Quality**: 87%+ test coverage, strict mypy typing, comprehensive tooling
 
 ## 📦 Installation
 
@@ -96,8 +94,8 @@ export ANTHROPIC_API_KEY="your-api-key"
 export ANTHROPIC_VERTEX_PROJECT_ID="your-project-id"
 gcloud auth application-default login
 
-# Run the hello world example
-uv run alphanso run --config examples/hello-world/config.yaml
+# Run the hello world example (with -v for INFO level output)
+uv run alphanso run --config examples/hello-world/config.yaml -vv
 ```
 
 This example demonstrates:
@@ -108,115 +106,6 @@ This example demonstrates:
 - **Streaming output**: Real-time display of Claude's thinking and tool usage
 - **Complete workflow**: From setup to resolution with full transparency
 
-**Expected Output**:
-```
-Loading configuration from: examples/hello-world/config.yaml
-
-======================================================================
-NODE: pre_actions
-======================================================================
-Running pre-actions to set up environment...
-
-[1/3] Setup git repositories with conflict
-     ✅ Success
-     │ Creating git repositories with merge conflict...
-
-[2/3] Fetch upstream changes
-     ✅ Success
-
-[3/3] Attempt merge (will conflict)
-     ✅ Success
-     │ Auto-merging README.md
-
-======================================================================
-NODE: validate
-======================================================================
-Running validators to check current state...
-
-[1/1] Git Conflict Check
-     ❌ Failed (0.01s)
-
-❌ 1 validator(s) FAILED:
-   - Git Conflict Check
-
-======================================================================
-NODE: decide
-======================================================================
-❌ Validation failed (attempt 1/5)
-   Failed validators: Git Conflict Check
-   Decision: RETRY (increment attempt and re-validate)
-======================================================================
-
-======================================================================
-NODE: increment_attempt
-======================================================================
-📊 Attempt 1 → 2
-   Failed validators: Git Conflict Check
-   Failure history entries: 1
-🔄 Retrying validation...
-======================================================================
-
-======================================================================
-NODE: ai_fix
-======================================================================
-Invoking Claude agent to investigate and fix failures...
-
-✅ Agent initialized
-   Provider: vertex
-   Model: claude-sonnet-4-5@20250929
-
-🤖 Invoking Claude agent...
-
-======================================================================
-CLAUDE'S ACTIONS (STREAMING):
-======================================================================
-
-💭 Claude says:
-   I'll investigate the git conflict markers in the README.md file and fix them.
-
-🔧 Using tool: Read
-   Input: {'file_path': 'git-repos/fork/README.md'}
-
-💭 Claude says:
-   I can see the issue clearly. The README.md file has unresolved git conflict markers.
-   I'll resolve this by merging the content appropriately.
-
-🔧 Using tool: Edit
-   Input: {'file_path': 'git-repos/fork/README.md', 'old_string': '...', 'new_string': '...'}
-
-💭 Claude says:
-   Perfect! I've resolved the git conflict markers by:
-   1. Removing all conflict markers
-   2. Keeping the newer version (2.0.0)
-   3. Merging features from both versions
-
-======================================================================
-
-✅ Agent invocation completed
-   Stop reason: end_turn
-   Tool calls: 2
-
-======================================================================
-NODE: validate
-======================================================================
-Running validators to check current state...
-
-[1/1] Git Conflict Check
-     ✅ Success (0.01s)
-
-✅ All validators PASSED
-
-======================================================================
-NODE: decide
-======================================================================
-✅ All validators passed
-   Decision: END with success
-======================================================================
-
-============================================================
-✅ All pre-actions completed successfully!
-============================================================
-```
 
 ### Configuration Example
 
@@ -276,6 +165,15 @@ uv run alphanso run --config examples/hello-world/config.yaml
 
 # Pass environment variables
 uv run alphanso run --config config.yaml --var K8S_TAG=v1.35.0 --var RELEASE=4.22
+
+# Control logging verbosity
+uv run alphanso run --config config.yaml -v              # INFO level
+uv run alphanso run --config config.yaml -vv             # DEBUG level
+uv run alphanso run --config config.yaml -q              # Quiet (errors only)
+
+# Write logs to file
+uv run alphanso run --config config.yaml -vv --log-file debug.log
+uv run alphanso run --config config.yaml -v --log-file logs.json --log-format json
 ```
 
 ### Using the Python API
@@ -283,6 +181,7 @@ uv run alphanso run --config config.yaml --var K8S_TAG=v1.35.0 --var RELEASE=4.2
 You can also use Alphanso programmatically. The API accepts `ConvergenceConfig` objects:
 
 ```python
+import logging
 from pathlib import Path
 from alphanso.api import run_convergence
 from alphanso.config.schema import ConvergenceConfig
@@ -298,7 +197,8 @@ result = run_convergence(
     config=config,
     system_prompt_content=system_prompt,  # Required for AI agent
     env_vars={"CUSTOM_VAR": "value"},     # Optional
-    working_directory="."                  # Optional
+    working_directory=".",                 # Optional
+    log_level=logging.INFO                 # Optional (default: INFO)
 )
 
 # Check results
@@ -309,17 +209,140 @@ if result["success"]:
         print(f"{status} {action['action']}")
 ```
 
+**For more control over logging**, configure it yourself before calling `run_convergence()`:
+
+```python
+import logging
+from pathlib import Path
+from alphanso.utils.logging import setup_logging
+from alphanso.api import run_convergence
+
+# Setup logging with file output
+setup_logging(
+    level=logging.DEBUG,
+    log_file=Path("alphanso.log"),
+    log_format="json",  # or "text"
+    enable_colors=True
+)
+
+# Now run convergence (will use your logging config)
+result = run_convergence(config=config, system_prompt_content=system_prompt)
+```
+
 The `run_convergence()` function:
 - **Takes**:
   - `config`: ConvergenceConfig object
   - `system_prompt_content`: System prompt for AI agent (required)
   - `env_vars`: Optional environment variables
   - `working_directory`: Optional working directory
+  - `log_level`: Logging level (default: `logging.INFO`)
 - **Returns**: `ConvergenceResult` with:
   - `success`: bool - Overall success status
   - `pre_action_results`: list - Results from each pre-action
   - `config_name`: str - Name from the config
   - `working_directory`: str - Working directory used
+
+### Logging and Diagnostics
+
+Alphanso provides comprehensive logging with Rich console output, structured JSON logging, and configurable verbosity levels.
+
+#### CLI Logging
+
+Control logging output with command-line flags:
+
+```bash
+# Default: WARNING level (errors and warnings only)
+uv run alphanso run --config config.yaml
+
+# INFO level: Show progress and key events
+uv run alphanso run --config config.yaml -v
+
+# DEBUG level: Show detailed diagnostics
+uv run alphanso run --config config.yaml -vv
+
+# Quiet mode: Errors only
+uv run alphanso run --config config.yaml -q
+
+# Write logs to file (text format)
+uv run alphanso run --config config.yaml -vv --log-file debug.log
+
+# Write logs to file (JSON format for parsing)
+uv run alphanso run --config config.yaml -vv --log-file logs.json --log-format json
+```
+
+**Log Levels**:
+- **ERROR** (`-q`): Only critical errors
+- **WARNING** (default): Errors and warnings
+- **INFO** (`-v`): Progress updates, validator results, AI actions
+- **DEBUG** (`-vv`): Detailed diagnostics, context sent to AI, full command output
+
+**Log Formats**:
+- **text**: Human-readable colored output (Rich console)
+- **json**: Structured logging for machine parsing
+
+#### API Logging
+
+Configure logging programmatically:
+
+```python
+import logging
+from alphanso.api import run_convergence
+from alphanso.config.schema import ConvergenceConfig
+from alphanso.utils.logging import setup_logging
+
+# Option 1: Configure logging yourself
+setup_logging(
+    level=logging.DEBUG,
+    log_file=Path("alphanso-debug.log"),
+    log_format="text",
+    enable_colors=True
+)
+
+# Option 2: Let run_convergence configure it
+result = run_convergence(
+    config=config,
+    system_prompt_content=system_prompt,
+    log_level=logging.DEBUG  # Only used if logging not already configured
+)
+```
+
+**Logging Features**:
+- **Rich Console Output**: Colored, formatted output with emoji icons
+- **Hierarchical Loggers**: All loggers under `alphanso.*` namespace
+- **File + Console**: Simultaneous output to console and file
+- **JSON Structured Logging**: Machine-parsable logs for analysis
+- **Context Visibility**: See exact context sent to AI (DEBUG level)
+- **Real-time Streaming**: Watch AI's thinking and tool usage live
+
+**Example JSON Log Output**:
+```json
+{"timestamp": "2025-11-03T14:30:45.123Z", "level": "INFO", "logger": "alphanso.graph.nodes", "message": "NODE: validate"}
+{"timestamp": "2025-11-03T14:30:45.234Z", "level": "INFO", "logger": "alphanso.graph.nodes", "message": "[1/3] Build"}
+{"timestamp": "2025-11-03T14:30:50.456Z", "level": "INFO", "logger": "alphanso.graph.nodes", "message": "     ✅ Success (5.22s)"}
+```
+
+#### Debugging Tips
+
+**View AI Context**:
+```bash
+# See exact system prompt and user message sent to AI
+uv run alphanso run --config config.yaml -vv --log-file debug.log
+grep "CONTEXT SENT TO AI" debug.log -A 50
+```
+
+**Track Failures**:
+```bash
+# Capture all validation failures and AI responses
+uv run alphanso run --config config.yaml -v 2>&1 | tee run.log
+```
+
+**JSON Analysis**:
+```bash
+# Parse JSON logs with jq
+uv run alphanso run --config config.yaml -v --log-file logs.json --log-format json
+cat logs.json | jq 'select(.level == "ERROR")'  # Show only errors
+cat logs.json | jq 'select(.logger | contains("ai_fix"))'  # Show AI actions
+```
 
 ### More Examples
 
@@ -441,103 +464,11 @@ uv run isort src/ tests/
 uv run ruff check src/ tests/
 ```
 
-## 📊 Current Status
-
-**STEP 0: Pre-Actions System** ✅ **COMPLETE**
-
-- ✅ PreAction class with variable substitution and working directory support
-- ✅ Pydantic configuration schema with Claude Agent SDK & OpenAI Agent SDK support
-- ✅ Public API with `run_convergence()` function
-- ✅ CLI interface with `alphanso run` command (thin wrapper over API)
-- ✅ Professional development tooling
-
-**STEP 1: State Schema & Graph Structure** ✅ **COMPLETE**
-
-- ✅ Complete ConvergenceState TypedDict with all fields (pre-actions, validation, AI, metadata)
-- ✅ ValidationResult TypedDict for validator outputs
-- ✅ LangGraph integration with StateGraph and graph compilation
-- ✅ Graph builder with linear flow: START → pre_actions → validate → decide → END
-- ✅ Full mypy --strict typing with proper LangGraph generics
-
-**STEP 2: Validator Base Class & Simple Validators** ✅ **COMPLETE**
-
-- ✅ Validator abstract base class with timing and error handling
-- ✅ CommandValidator for shell commands (make, test, build, etc.)
-- ✅ GitConflictValidator for merge conflict detection
-- ✅ create_validators() factory function
-- ✅ Real validate_node implementation with progress display
-- ✅ Comprehensive tests (41 tests, 100% validators coverage)
-- ✅ Updated hello-world example with validators
-
-**STEP 3: Retry Loop & Conditional Edges** ✅ **COMPLETE**
-
-- ✅ Conditional edge routing based on validation results
-- ✅ increment_attempt node for tracking iterations
-- ✅ Failure history tracking across attempts
-- ✅ Max attempts limit with proper termination
-- ✅ Complete retry loop: validate → decide → increment_attempt → validate
-
-**STEP 4: AI Agent Integration** ✅ **COMPLETE**
-
-- ✅ Claude Agent SDK integration with built-in tools
-- ✅ ai_fix node that invokes Claude when validation fails
-- ✅ Streaming output showing Claude's thinking and tool usage
-- ✅ Real-time display of tool calls (Bash, Read, Write, Edit, etc.)
-- ✅ System prompt loading from config files
-- ✅ Support for both Anthropic API and Vertex AI
-- ✅ Autonomous problem investigation and resolution
-- ✅ Updated hello-world example with full AI workflow
-
-**Test Coverage**: 140 tests, 92% coverage
-
-```
-Name                                  Stmts   Miss Branch BrPart   Cover
-------------------------------------------------------------------------
-src/alphanso/actions/pre_actions.py      31      0      0      0  100.00%
-src/alphanso/api.py                      31      0      4      1   97.14%
-src/alphanso/cli.py                      33      0      6      0  100.00%
-src/alphanso/config/schema.py            48      0      4      0  100.00%
-src/alphanso/graph/builder.py            16      0      0      0  100.00%
-src/alphanso/graph/nodes.py              91     28     36      5   62.99%
-src/alphanso/graph/state.py              31      0      0      0  100.00%
-src/alphanso/validators/base.py          16      0      0      0  100.00%
-src/alphanso/validators/command.py       16      0      0      0  100.00%
-src/alphanso/validators/git.py           11      0      0      0  100.00%
-------------------------------------------------------------------------
-TOTAL                                   330     29     50      6   87.11%
-```
-
-## 🗺️ Roadmap
-
-Alphanso has a fully functional AI-powered convergence framework! STEP 0-4 are complete and production-ready.
-
-### Core Framework
-- [x] **STEP 0: Pre-Actions System** ✅ - Commands that run once before convergence
-- [x] **STEP 1: State Schema & Graph Structure** ✅ - LangGraph workflow orchestration
-- [x] **STEP 2: Validator System** ✅ - Build, test, and conflict detection
-- [x] **STEP 3: Retry Loop & Conditional Edges** ✅ - Intelligent iteration control
-- [x] **STEP 4: AI Agent Integration** ✅ - Claude Agent SDK with autonomous fixing
-- [ ] **STEP 5: Advanced Retry Strategies** - Targeted, hybrid, and full retry modes
-- [ ] **Extended Configuration System** - Advanced workflow options
-- [ ] **Container Operations Support** - Podman/Docker integration
-- [ ] **Multi-Agent Workflows** - Specialized agents for different tasks
-
-### Use Case Examples
-- [ ] **Dependency Upgrade Example** - Automated package updates
-- [ ] **Complex Rebasing Examples** - Kubernetes/OpenShift fork maintenance
-
 ## 📄 License
 
-[Add your license here]
-
-## 🙏 Acknowledgments
-
-Inspired by the [rebaser project](https://github.com/openshift/kubernetes/tree/master/openshift-hack/rebaser) for Kubernetes rebasing.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📧 Contact
-
-[Add your contact information here]

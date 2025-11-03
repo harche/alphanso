@@ -7,6 +7,7 @@ Supports both Anthropic API and Google Vertex AI.
 """
 
 import asyncio
+import logging
 import os
 from typing import Any
 
@@ -19,6 +20,8 @@ from claude_agent_sdk import (
     ToolResultBlock,
     ToolUseBlock,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConvergenceAgent:
@@ -110,28 +113,23 @@ class ConvergenceAgent:
         # Combine system prompt and user message
         full_prompt = f"{system_prompt}\n\n{user_message}"
 
-        # DEBUG: Print the context being sent to AI
-        print("=" * 70)
-        print("DEBUG: CONTEXT SENT TO AI")
-        print("=" * 70)
-        print()
-        print("--- SYSTEM PROMPT ---")
-        print(system_prompt)
-        print()
-        print("--- USER MESSAGE ---")
-        print(user_message)
-        print()
-        print("=" * 70)
-        print()
+        # Log the context being sent to AI (DEBUG level)
+        logger.debug("=" * 70)
+        logger.debug("CONTEXT SENT TO AI")
+        logger.debug("=" * 70)
+        logger.debug("--- SYSTEM PROMPT ---")
+        logger.debug(system_prompt)
+        logger.debug("--- USER MESSAGE ---")
+        logger.debug(user_message)
+        logger.debug("=" * 70)
 
         # Collect all response messages
         messages: list[str] = []
         tool_call_count = 0
 
-        print("=" * 70)
-        print("CLAUDE'S ACTIONS (STREAMING):")
-        print("=" * 70)
-        print()
+        logger.info("=" * 70)
+        logger.info("CLAUDE'S ACTIONS (STREAMING):")
+        logger.info("=" * 70)
 
         # Use Claude Agent SDK with streaming
         async with ClaudeSDKClient(options=options) as client:
@@ -148,26 +146,23 @@ class ConvergenceAgent:
                         if isinstance(block, TextBlock):
                             text = block.text
                             messages.append(text)
-                            print(f"💭 Claude says:")
-                            print(f"   {text}")
-                            print()
+                            logger.info(f"💭 Claude says:")
+                            logger.info(f"   {text}")
 
                         # Claude's thinking process
                         elif isinstance(block, ThinkingBlock):
-                            print(f"🤔 Claude is thinking:")
-                            print(f"   {block.thinking}")
-                            print()
+                            logger.debug(f"🤔 Claude is thinking:")
+                            logger.debug(f"   {block.thinking}")
 
                         # Tool being used
                         elif isinstance(block, ToolUseBlock):
                             tool_call_count += 1
-                            print(f"🔧 Using tool: {block.name}")
-                            print(f"   Input: {block.input}")
-                            print()
+                            logger.info(f"🔧 Using tool: {block.name}")
+                            logger.debug(f"   Input: {block.input}")
 
                         # Tool result
                         elif isinstance(block, ToolResultBlock):
-                            print(f"   ✅ Tool result:")
+                            logger.debug(f"   ✅ Tool result:")
                             # Tool results can have content
                             if hasattr(block, "content"):
                                 for result_item in block.content:
@@ -175,14 +170,12 @@ class ConvergenceAgent:
                                         output = result_item.text
                                         # Truncate long output
                                         if len(output) > 1000:
-                                            print(f"      {output[:1000]}")
-                                            print(f"      ... (truncated)")
+                                            logger.debug(f"      {output[:1000]}")
+                                            logger.debug(f"      ... (truncated)")
                                         else:
-                                            print(f"      {output}")
-                            print()
+                                            logger.debug(f"      {output}")
 
-        print("=" * 70)
-        print()
+        logger.info("=" * 70)
 
         return {
             "content": messages,

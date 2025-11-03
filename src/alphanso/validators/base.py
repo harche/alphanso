@@ -5,10 +5,13 @@ They are RUN BY THE FRAMEWORK in the validate_node.
 They are NOT tools for the AI agent.
 """
 
+import logging
 import time
 from abc import ABC, abstractmethod
 
 from alphanso.graph.state import ValidationResult
+
+logger = logging.getLogger(__name__)
 
 
 class Validator(ABC):
@@ -65,6 +68,7 @@ class Validator(ABC):
             return result
         except Exception as e:
             # Convert exception to failed validation result
+            logger.debug(f"Validator '{self.name}' raised exception: {e}", exc_info=True)
             return ValidationResult(
                 validator_name=self.name,
                 success=False,

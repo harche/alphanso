@@ -1,5 +1,6 @@
 """Command-line interface for Alphanso."""
 
+import logging
 import sys
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import click
 
 from alphanso.api import run_convergence
 from alphanso.config.schema import ConvergenceConfig
+from alphanso.utils.logging import setup_logging
 
 
 @click.group()
@@ -26,11 +28,40 @@ def cli() -> None:
 )
 @click.option(
     "--var",
-    "-v",
     multiple=True,
     help="Environment variable (KEY=VALUE)",
 )
-def run(config: Path, var: tuple[str, ...]) -> None:
+@click.option(
+    "--verbose",
+    "-v",
+    count=True,
+    help="Increase verbosity (-v=INFO, -vv=DEBUG)",
+)
+@click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    help="Suppress all output except errors",
+)
+@click.option(
+    "--log-file",
+    type=click.Path(path_type=Path),
+    help="Write logs to file",
+)
+@click.option(
+    "--log-format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Log file format (text or json)",
+)
+def run(
+    config: Path,
+    var: tuple[str, ...],
+    verbose: int,
+    quiet: bool,
+    log_file: Path | None,
+    log_format: str,
+) -> None:
     """Run convergence loop with configuration.
 
     Examples:
@@ -38,41 +69,70 @@ def run(config: Path, var: tuple[str, ...]) -> None:
         alphanso run --config config.yaml
 
         alphanso run --config rebase.yaml --var K8S_TAG=v1.35.0
+
+        alphanso run --config config.yaml -vv --log-file debug.log
+
+        alphanso run --config config.yaml --log-file logs.json --log-format json
     """
+    # Setup logging based on verbosity flags
+    # Map verbosity count to log level
+    if quiet:
+        log_level = logging.ERROR
+    elif verbose == 0:
+        log_level = logging.WARNING  # Default: warnings and errors only
+    elif verbose == 1:
+        log_level = logging.INFO  # -v: informational messages
+    else:  # verbose >= 2
+        log_level = logging.DEBUG  # -vv or more: debug messages
+
+    # Initialize logging for entire application
+    setup_logging(
+        level=log_level,
+        log_file=log_file,
+        log_format=log_format,
+        enable_colors=sys.stdout.isatty(),
+    )
+
+    # Get logger for CLI module
+    logger = logging.getLogger(__name__)
+
     # Parse variables from --var options
     env_vars: dict[str, str] = {}
     for v in var:
         if "=" not in v:
-            click.echo(f"Error: Invalid variable format '{v}'. Expected KEY=VALUE")
+            logger.error(f"Invalid variable format '{v}'. Expected KEY=VALUE")
             sys.exit(1)
         key, value = v.split("=", 1)
         env_vars[key] = value
 
-    # Display header
-    click.echo(f"Loading configuration from: {config}")
-    click.echo()
+    # Log configuration loading
+    logger.info(f"Loading configuration from: {config}")
 
     # Load configuration from YAML
     # Note: from_yaml() automatically loads system_prompt_file content into system_prompt field
     try:
         config_obj = ConvergenceConfig.from_yaml(config)
+        logger.debug(f"Configuration loaded successfully: {config_obj.name}")
     except Exception as e:
-        click.echo(f"Error loading configuration: {e}", err=True)
+        logger.error(f"Error loading configuration: {e}", exc_info=True)
         sys.exit(1)
 
     # Extract system prompt content (already loaded by from_yaml())
     system_prompt_content = config_obj.agent.claude.system_prompt or None
+    if system_prompt_content:
+        logger.debug("Custom system prompt loaded from configuration")
 
     # Run convergence using API
-    # Note: All output is now printed in real-time by the graph nodes
-    # Don't pass working_directory - let it use config.working_directory
-    # which is resolved relative to the config file location
     try:
         # Resolve config's working_directory relative to config file location
         if not Path(config_obj.working_directory).is_absolute():
             working_dir = config.parent / config_obj.working_directory
         else:
             working_dir = Path(config_obj.working_directory)
+
+        logger.info(f"Starting convergence loop: {config_obj.name}")
+        logger.debug(f"Working directory: {working_dir.absolute()}")
+        logger.debug(f"Max attempts: {config_obj.max_attempts}")
 
         result = run_convergence(
             config=config_obj,
@@ -81,17 +141,16 @@ def run(config: Path, var: tuple[str, ...]) -> None:
             working_directory=working_dir.absolute(),
         )
     except Exception as e:
-        click.echo(f"Error running convergence: {e}", err=True)
+        logger.error(f"Error running convergence: {e}", exc_info=True)
         sys.exit(1)
 
     # Summary
-    click.echo("=" * 60)
+    logger.info("=" * 60)
     if result["success"]:
-        click.echo("✅ All pre-actions completed successfully!")
+        logger.info("✅ All pre-actions completed successfully!")
     else:
-        click.echo("❌ Some pre-actions failed")
-    click.echo("=" * 60)
-    click.echo()
+        logger.warning("❌ Some pre-actions failed")
+    logger.info("=" * 60)
 
     # Exit with appropriate code
     sys.exit(0 if result["success"] else 1)

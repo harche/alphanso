@@ -4,10 +4,13 @@ This validator executes shell commands (make, make test, go build, etc.)
 and checks their exit codes. It's run by the framework, not by Claude.
 """
 
+import logging
 import subprocess
 
 from alphanso.graph.state import ValidationResult
 from alphanso.validators.base import Validator
+
+logger = logging.getLogger(__name__)
 
 
 class CommandValidator(Validator):
@@ -54,6 +57,10 @@ class CommandValidator(Validator):
         Returns:
             ValidationResult with command output and exit status
         """
+        logger.debug(f"Running command: {self.command}")
+        logger.debug(f"Working directory: {self.working_dir}")
+        logger.debug(f"Timeout: {self.timeout}s")
+
         result = subprocess.run(
             self.command,
             shell=True,
@@ -62,6 +69,8 @@ class CommandValidator(Validator):
             timeout=self.timeout,
             cwd=self.working_dir,
         )
+
+        logger.debug(f"Command exit code: {result.returncode}")
 
         # Capture last N lines
         stdout_lines = result.stdout.split("\n") if result.stdout else []

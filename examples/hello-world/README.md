@@ -41,6 +41,37 @@ cd git-repos/fork
 alphanso run --config ../../config.yaml --verbose
 ```
 
+## Logging Options
+
+Control output verbosity with logging flags:
+
+```bash
+# Default (WARNING): Only errors and warnings
+alphanso run --config config.yaml
+
+# INFO level (-v): Show progress and key events
+alphanso run --config config.yaml -v
+
+# DEBUG level (-vv): Show detailed diagnostics including AI context
+alphanso run --config config.yaml -vv
+
+# Save logs to file (text format)
+alphanso run --config config.yaml -vv --log-file debug.log
+
+# Save logs to file (JSON format for parsing)
+alphanso run --config config.yaml -v --log-file logs.json --log-format json
+
+# Quiet mode: Only errors
+alphanso run --config config.yaml -q
+```
+
+**Recommended for debugging**:
+```bash
+# See exactly what context is sent to Claude
+alphanso run --config config.yaml -vv --log-file debug.log
+grep "CONTEXT SENT TO AI" debug.log -A 50
+```
+
 ## Expected Behavior
 
 ### Attempt 1: Detect Conflict

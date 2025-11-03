@@ -3,6 +3,7 @@
 This module contains the node functions that make up the convergence state graph.
 """
 
+import logging
 from typing import Any
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
@@ -15,6 +16,8 @@ from alphanso.validators import (
     TestSuiteValidator,
     Validator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_validators(
@@ -112,19 +115,22 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     """
     # Skip if pre-actions already completed (idempotent)
     if state.get("pre_actions_completed", False):
+        logger.debug("Pre-actions already completed, skipping")
         return {}
 
-    print("\n" + "=" * 70)
-    print("NODE: pre_actions")
-    print("=" * 70)
-    print("Running pre-actions to set up environment...")
-    print()
+    logger.info("=" * 70)
+    logger.info("NODE: pre_actions")
+    logger.info("=" * 70)
+    logger.info("Running pre-actions to set up environment...")
 
     results: list[PreActionResult] = []
 
     # Get environment variables and working directory from state
     env_vars = state.get("env_vars", {})
     working_dir = state.get("working_directory")
+
+    logger.debug(f"Working directory: {working_dir}")
+    logger.debug(f"Environment variables: {list(env_vars.keys())}")
 
     # Add common variables from state
     if working_dir:
@@ -138,24 +144,26 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         )
 
         # Show what we're running
-        print(f"[{idx}/{len(state.get('pre_actions_config', []))}] {pre_action.description}")
+        logger.info(f"[{idx}/{len(state.get('pre_actions_config', []))}] {pre_action.description}")
 
         result = pre_action.run(env_vars, working_dir=working_dir)
         results.append(result)
 
         # Show result
         if result["success"]:
-            print(f"     ✅ Success")
+            logger.info(f"     ✅ Success")
             if result["output"]:
                 # Show first line of output if available
                 first_line = result["output"].strip().split("\n")[0]
                 if first_line:
-                    print(f"     │ {first_line}")
+                    logger.info(f"     │ {first_line}")
+                # Log full output at debug level
+                logger.debug(f"Full output: {result['output']}")
         else:
-            print(f"     ❌ Failed")
+            logger.warning(f"     ❌ Failed")
             if result["stderr"]:
-                print(f"     │ {result['stderr'][:200]}")
-        print()
+                logger.warning(f"     │ {result['stderr'][:200]}")
+            logger.debug(f"Full stderr: {result['stderr']}")
 
     # Return state updates (LangGraph will merge these)
     return {
@@ -190,20 +198,20 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
         >>> "validation_results" in updates
         True
     """
-    print("\n" + "=" * 70)
-    print("NODE: validate")
-    print("=" * 70)
-    print("Running validators to check current state...")
-    print()
+    logger.info("=" * 70)
+    logger.info("NODE: validate")
+    logger.info("=" * 70)
+    logger.info("Running validators to check current state...")
 
     # Get validators configuration and working directory
     validators_config = state.get("validators_config", [])
     working_dir = state.get("working_directory")
 
+    logger.debug(f"Validators configured: {len(validators_config)}")
+
     # Handle case with no validators configured
     if not validators_config:
-        print("⚠️  No validators configured - skipping validation")
-        print()
+        logger.warning("⚠️  No validators configured - skipping validation")
         return {
             "success": True,
             "validation_results": [],
@@ -218,38 +226,40 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
     failed_validators = []
 
     for idx, validator in enumerate(validators, 1):
-        print(f"[{idx}/{len(validators)}] {validator.name}")
+        logger.info(f"[{idx}/{len(validators)}] {validator.name}")
 
         result = validator.run()
         validation_results.append(result)
 
         # Show result
         if result["success"]:
-            print(f"     ✅ Success ({result['duration']:.2f}s)")
+            logger.info(f"     ✅ Success ({result['duration']:.2f}s)")
             if result["output"]:
                 # Show first line of output if available
                 first_line = result["output"].strip().split("\n")[0]
                 if first_line:
-                    print(f"     │ {first_line[:80]}")
+                    logger.info(f"     │ {first_line[:80]}")
+                # Log full output at debug level
+                logger.debug(f"Full output: {result['output']}")
         else:
-            print(f"     ❌ Failed ({result['duration']:.2f}s)")
+            logger.warning(f"     ❌ Failed ({result['duration']:.2f}s)")
             failed_validators.append(validator.name)
             if result["stderr"]:
                 # Show first line of error
                 first_error = result["stderr"].strip().split("\n")[0]
-                print(f"     │ {first_error[:80]}")
-        print()
+                logger.warning(f"     │ {first_error[:80]}")
+            # Log full error at debug level
+            logger.debug(f"Full stderr: {result['stderr']}")
 
     # Determine overall success
     success = len(failed_validators) == 0
 
     if success:
-        print("✅ All validators PASSED")
+        logger.info("✅ All validators PASSED")
     else:
-        print(f"❌ {len(failed_validators)} validator(s) FAILED:")
+        logger.warning(f"❌ {len(failed_validators)} validator(s) FAILED:")
         for name in failed_validators:
-            print(f"   - {name}")
-    print()
+            logger.warning(f"   - {name}")
 
     # Update failure history if validators failed
     # This ensures every validation attempt is recorded, even the last one
@@ -290,9 +300,9 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
         >>> updates
         {}
     """
-    print("\n" + "=" * 70)
-    print("NODE: decide")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("NODE: decide")
+    logger.info("=" * 70)
 
     # Show current state info
     success = state.get("success", False)
@@ -301,19 +311,18 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
     failed_validators = state.get("failed_validators", [])
 
     if success:
-        print("✅ All validators passed")
-        print("   Decision: END with success")
+        logger.info("✅ All validators passed")
+        logger.info("   Decision: END with success")
     elif attempt >= max_attempts - 1:
-        print(f"⚠️  Max attempts reached ({attempt + 1}/{max_attempts})")
-        print(f"   Failed validators: {', '.join(failed_validators) if failed_validators else 'none'}")
-        print("   Decision: END with failure")
+        logger.warning(f"⚠️  Max attempts reached ({attempt + 1}/{max_attempts})")
+        logger.warning(f"   Failed validators: {', '.join(failed_validators) if failed_validators else 'none'}")
+        logger.warning("   Decision: END with failure")
     else:
-        print(f"❌ Validation failed (attempt {attempt + 1}/{max_attempts})")
-        print(f"   Failed validators: {', '.join(failed_validators)}")
-        print("   Decision: RETRY (increment attempt and re-validate)")
+        logger.warning(f"❌ Validation failed (attempt {attempt + 1}/{max_attempts})")
+        logger.warning(f"   Failed validators: {', '.join(failed_validators)}")
+        logger.info("   Decision: RETRY (increment attempt and re-validate)")
 
-    print("=" * 70)
-    print()
+    logger.info("=" * 70)
 
     # No state updates - routing handled by should_continue() edge function
     return {}
@@ -348,19 +357,18 @@ def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
         >>> updates["attempt"]
         1
     """
-    print("\n" + "=" * 70)
-    print("NODE: increment_attempt")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("NODE: increment_attempt")
+    logger.info("=" * 70)
 
     new_attempt = state["attempt"] + 1
     failure_history = state.get("failure_history", [])
 
-    print(f"📊 Attempt {state['attempt'] + 1} → {new_attempt + 1}")
-    print(f"   Failed validators: {', '.join(state.get('failed_validators', []))}")
-    print(f"   Failure history entries: {len(failure_history)}")
-    print("🔄 Retrying validation...")
-    print("=" * 70)
-    print()
+    logger.info(f"📊 Attempt {state['attempt'] + 1} → {new_attempt + 1}")
+    logger.info(f"   Failed validators: {', '.join(state.get('failed_validators', []))}")
+    logger.debug(f"   Failure history entries: {len(failure_history)}")
+    logger.info("🔄 Retrying validation...")
+    logger.info("=" * 70)
 
     return {
         "attempt": new_attempt,
@@ -402,11 +410,10 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
         >>> "ai_response" in updates
         True
     """
-    print("\n" + "=" * 70)
-    print("NODE: ai_fix")
-    print("=" * 70)
-    print("Invoking Claude agent to investigate and fix failures...")
-    print()
+    logger.info("=" * 70)
+    logger.info("NODE: ai_fix")
+    logger.info("=" * 70)
+    logger.info("Invoking Claude agent to investigate and fix failures...")
 
     # Get agent configuration
     agent_config = state.get("agent_config", {})
@@ -420,13 +427,11 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
             model=model,
             working_directory=working_dir,
         )
-        print(f"✅ Agent initialized")
-        print(f"   Provider: {agent.provider}")
-        print(f"   Model: {agent.model}")
-        print()
+        logger.info(f"✅ Agent initialized")
+        logger.info(f"   Provider: {agent.provider}")
+        logger.info(f"   Model: {agent.model}")
     except Exception as e:
-        print(f"❌ Failed to initialize agent: {e}")
-        print()
+        logger.error(f"❌ Failed to initialize agent: {e}")
         return {
             "ai_response": {
                 "error": str(e),
@@ -440,22 +445,19 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
 
     # Invoke agent
     try:
-        print("🤖 Invoking Claude agent...")
-        print()
+        logger.info("🤖 Invoking Claude agent...")
 
         response = agent.invoke(system_prompt, user_message)
 
-        print(f"✅ Agent invocation completed")
-        print(f"   Stop reason: {response.get('stop_reason', 'unknown')}")
-        print(f"   Tool calls: {response.get('tool_call_count', 0)}")
-        print()
+        logger.info(f"✅ Agent invocation completed")
+        logger.info(f"   Stop reason: {response.get('stop_reason', 'unknown')}")
+        logger.info(f"   Tool calls: {response.get('tool_call_count', 0)}")
 
         return {
             "ai_response": response,
         }
     except Exception as e:
-        print(f"❌ Agent invocation failed: {e}")
-        print()
+        logger.error(f"❌ Agent invocation failed: {e}")
         return {
             "ai_response": {
                 "error": str(e),

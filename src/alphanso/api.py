@@ -3,6 +3,7 @@
 This module provides the main programmatic interface for using Alphanso.
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -10,6 +11,9 @@ from typing import TypedDict
 from alphanso.config.schema import ConvergenceConfig
 from alphanso.graph.builder import create_convergence_graph
 from alphanso.graph.state import ConvergenceState
+from alphanso.utils.logging import is_logging_configured, setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 class PreActionResultDict(TypedDict):
@@ -37,6 +41,7 @@ def run_convergence(
     system_prompt_content: str | None = None,
     env_vars: dict[str, str] | None = None,
     working_directory: str | Path | None = None,
+    log_level: int = logging.INFO,
 ) -> ConvergenceResult:
     """Run Alphanso convergence loop with the given configuration.
 
@@ -51,6 +56,9 @@ def run_convergence(
                  If CURRENT_TIME is not provided, it will be added automatically.
         working_directory: Optional working directory for command execution.
                           Defaults to config.working_directory if not provided.
+        log_level: Logging level for API users. Only used if logging not already
+                  configured. Defaults to logging.INFO. Use logging.DEBUG for
+                  detailed diagnostics.
 
     Returns:
         ConvergenceResult with success status and pre-action results
@@ -80,6 +88,15 @@ def run_convergence(
         >>> if result["success"]:
         ...     print("All steps succeeded!")
     """
+    # Setup logging if not already configured
+    # This ensures API users get logging output even if they don't call setup_logging()
+    if not is_logging_configured():
+        setup_logging(level=log_level)
+
+    logger.info("=" * 70)
+    logger.info(f"Starting convergence: {config.name}")
+    logger.info("=" * 70)
+
     # Initialize env_vars if not provided
     if env_vars is None:
         env_vars = {}
@@ -92,6 +109,11 @@ def run_convergence(
     if working_directory is None:
         working_directory = config.working_directory
     working_dir_str = str(Path(working_directory).absolute())
+
+    logger.debug(f"Working directory: {working_dir_str}")
+    logger.debug(f"Max attempts: {config.max_attempts}")
+    logger.debug(f"Pre-actions: {len(config.pre_actions)}")
+    logger.debug(f"Validators: {len(config.validators)}")
 
     # Create initial state
     initial_state: ConvergenceState = {
@@ -124,7 +146,10 @@ def run_convergence(
     }
 
     # Create and execute convergence graph
+    logger.info("Creating convergence state graph...")
     graph = create_convergence_graph()
+
+    logger.info("Executing convergence loop...")
     final_state = graph.invoke(initial_state)
 
     # Determine overall success (all pre-actions succeeded)
@@ -139,5 +164,13 @@ def run_convergence(
         "config_name": config.name,
         "working_directory": final_state["working_directory"],
     }
+
+    logger.info("=" * 70)
+    if all_success:
+        logger.info(f"✅ Convergence completed successfully")
+    else:
+        failed_count = sum(1 for r in final_state["pre_action_results"] if not r["success"])
+        logger.warning(f"❌ Convergence completed with {failed_count} failure(s)")
+    logger.info("=" * 70)
 
     return result

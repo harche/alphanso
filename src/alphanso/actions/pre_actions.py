@@ -5,10 +5,13 @@ This module provides the PreAction class for running setup operations
 the main convergence loop.
 """
 
+import logging
 import re
 import subprocess
 import time
 from typing import TypedDict
+
+logger = logging.getLogger(__name__)
 
 
 class PreActionResult(TypedDict):
@@ -85,6 +88,10 @@ class PreAction:
         # Substitute variables in command
         expanded_command = self._substitute_vars(self.command, env_vars)
 
+        logger.debug(f"Pre-action: {self.description}")
+        logger.debug(f"Command (expanded): {expanded_command}")
+        logger.debug(f"Working directory: {working_dir}")
+
         # Run command with timing
         start = time.time()
         try:
@@ -97,6 +104,8 @@ class PreAction:
                 cwd=working_dir,  # Execute in specified directory
             )
 
+            logger.debug(f"Pre-action exit code: {result.returncode}")
+
             return PreActionResult(
                 action=self.description,
                 success=result.returncode == 0,
@@ -106,6 +115,7 @@ class PreAction:
                 duration=time.time() - start,
             )
         except subprocess.TimeoutExpired:
+            logger.debug(f"Pre-action timed out after 600 seconds")
             return PreActionResult(
                 action=self.description,
                 success=False,
@@ -115,6 +125,7 @@ class PreAction:
                 duration=time.time() - start,
             )
         except Exception as e:
+            logger.debug(f"Pre-action raised exception: {e}", exc_info=True)
             return PreActionResult(
                 action=self.description,
                 success=False,

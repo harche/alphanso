@@ -4,10 +4,13 @@ This validator checks for Git merge conflict markers in the working tree.
 It's run by the framework, not by Claude.
 """
 
+import logging
 import subprocess
 
 from alphanso.graph.state import ValidationResult
 from alphanso.validators.base import Validator
+
+logger = logging.getLogger(__name__)
 
 
 class GitConflictValidator(Validator):
@@ -46,6 +49,9 @@ class GitConflictValidator(Validator):
         Returns:
             ValidationResult indicating whether conflicts were found
         """
+        logger.debug(f"Checking for git conflicts with: git diff --check")
+        logger.debug(f"Working directory: {self.working_dir}")
+
         # git diff --check exits with non-zero if it finds conflict markers
         result = subprocess.run(
             ["git", "diff", "--check"],
@@ -56,6 +62,7 @@ class GitConflictValidator(Validator):
         )
 
         has_conflicts = result.returncode != 0
+        logger.debug(f"Git conflicts found: {has_conflicts}")
 
         return ValidationResult(
             validator_name=self.name,

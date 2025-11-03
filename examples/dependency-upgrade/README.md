@@ -143,6 +143,37 @@ source venv/bin/activate
 pytest tests/ -v  # All pass with v2.0!
 ```
 
+### Logging Options
+
+Control output verbosity with logging flags:
+
+```bash
+# Default (WARNING): Only errors and warnings
+uv run alphanso run --config config.yaml
+
+# INFO level (-v): Show progress and validator results
+uv run alphanso run --config config.yaml -v
+
+# DEBUG level (-vv): Show detailed diagnostics including AI context
+uv run alphanso run --config config.yaml -vv
+
+# Save logs to file for later analysis
+uv run alphanso run --config config.yaml -vv --log-file upgrade-debug.log
+
+# Save logs in JSON format for parsing
+uv run alphanso run --config config.yaml -v --log-file upgrade.json --log-format json
+```
+
+**Recommended for debugging**:
+```bash
+# See exactly what Claude sees (system prompt and validation failures)
+uv run alphanso run --config config.yaml -vv --log-file debug.log
+grep "CONTEXT SENT TO AI" debug.log -A 100
+
+# Track AI's tool usage
+grep "Using tool" debug.log
+```
+
 ## Requirements
 
 - Python 3.11+
