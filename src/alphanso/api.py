@@ -34,7 +34,7 @@ class ConvergenceResult(TypedDict):
 
 def run_convergence(
     config: ConvergenceConfig,
-    system_prompt_content: str,
+    system_prompt_content: str | None = None,
     env_vars: dict[str, str] | None = None,
     working_directory: str | Path | None = None,
 ) -> ConvergenceResult:

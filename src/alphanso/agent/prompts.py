@@ -74,19 +74,17 @@ def build_user_message(state: ConvergenceState) -> str:
     for result in state.get("validation_results", []):
         if not result.get("success", True):
             message += f"## Validator: {result.get('validator_name', 'Unknown')}\n"
-            message += f"Exit Code: {result.get('exit_code', 'N/A')}\n"
-            message += f"Output:\n```\n{result.get('output', '')}\n```\n"
+            message += f"Exit Code: {result.get('exit_code', 'N/A')}\n\n"
 
+            # Include stdout (truncated to last N lines)
+            output = result.get('output', '')
+            if output:
+                message += f"Output (last {output.count(chr(10))} lines):\n```\n{output}\n```\n\n"
+
+            # Include stderr (full, usually has the important errors)
             stderr = result.get("stderr", "")
             if stderr:
-                message += f"Stderr:\n```\n{stderr}\n```\n"
-
-            # Include metadata (e.g., failing packages)
-            metadata = result.get("metadata", {})
-            if metadata:
-                message += f"Metadata: {metadata}\n"
-
-            message += "\n"
+                message += f"Stderr:\n```\n{stderr}\n```\n\n"
 
     message += "Please investigate using SDK tools and fix the issues."
 

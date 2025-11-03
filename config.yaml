@@ -1,0 +1,19 @@
+name: "Alphanso Test"
+max_attempts: 3
+
+# Working directory
+working_directory: "."
+
+# Pre-actions - none needed for basic test
+pre_actions: []
+
+# Validators - uses 'true' command which always passes (exit code 0)
+validators:
+  - type: command
+    name: "Always Pass"
+    command: "true"
+    timeout: 10
+
+# Retry strategy
+retry_strategy:
+  type: hybrid

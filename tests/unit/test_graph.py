@@ -4,10 +4,27 @@ This module tests LangGraph integration and graph execution.
 """
 
 import time
+from typing import Any
+from unittest.mock import patch
 
 from alphanso.graph.builder import create_convergence_graph
 from alphanso.graph.nodes import decide_node, pre_actions_node, validate_node
 from alphanso.graph.state import ConvergenceState
+
+
+def mock_ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
+    """Mock ai_fix_node that returns empty dict without calling real agent.
+
+    This prevents tests from requiring ANTHROPIC_API_KEY or making real API calls.
+    """
+    return {
+        "ai_response": {
+            "content": ["Mock AI response"],
+            "tool_calls": [],
+            "tool_call_count": 0,
+            "stop_reason": "end_turn",
+        }
+    }
 
 
 class TestGraphNodes:
@@ -293,6 +310,7 @@ class TestGraphRetryLoop:
         assert final_state["attempt"] == 0  # Never incremented
         assert len(final_state["failure_history"]) == 0
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_failure_with_attempts_remaining_increments(self) -> None:
         """Test that validation failure with attempts remaining increments attempt."""
         from alphanso.validators.command import CommandValidator
@@ -329,6 +347,7 @@ class TestGraphRetryLoop:
         assert len(final_state["failure_history"]) == 3  # All 3 attempts
         assert len(final_state["failed_validators"]) > 0
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_max_attempts_reached_goes_to_end_failure(self) -> None:
         """Test that max attempts reached goes to END with failure."""
         graph = create_convergence_graph()
@@ -361,6 +380,7 @@ class TestGraphRetryLoop:
         assert final_state["attempt"] == 1  # 0-indexed (attempt 0, 1 = 2 attempts)
         assert len(final_state["failure_history"]) == 2
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_failure_history_tracked_correctly(self) -> None:
         """Test that failure history accumulates correctly across attempts."""
         graph = create_convergence_graph()
@@ -398,6 +418,7 @@ class TestGraphRetryLoop:
             assert history_entry[0]["validator_name"] == "Failing Test"
             assert history_entry[0]["success"] is False
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_attempt_counter_increments_correctly(self) -> None:
         """Test that attempt counter increments on each retry."""
         graph = create_convergence_graph()
@@ -429,6 +450,7 @@ class TestGraphRetryLoop:
         assert final_state["attempt"] == 4
         assert len(final_state["failure_history"]) == 5
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_graph_executes_multiple_retry_loops(self) -> None:
         """Test that graph can execute multiple validation loops."""
         graph = create_convergence_graph()
@@ -461,6 +483,7 @@ class TestGraphRetryLoop:
         assert final_state["attempt"] == 3
         assert len(final_state["failure_history"]) == 4
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_state_preserved_across_iterations(self) -> None:
         """Test that state fields are preserved across retry loop iterations."""
         graph = create_convergence_graph()
@@ -521,6 +544,7 @@ class TestGraphRetryLoop:
         }
         assert should_continue(state_retry) == "retry"
 
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_integration_with_failing_validator(self) -> None:
         """Integration test with real failing validator demonstrating retry loop."""
         graph = create_convergence_graph()

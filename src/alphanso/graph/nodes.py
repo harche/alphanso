@@ -9,7 +9,12 @@ from alphanso.actions.pre_actions import PreAction, PreActionResult
 from alphanso.agent.client import ConvergenceAgent
 from alphanso.agent.prompts import build_fix_prompt, build_user_message
 from alphanso.graph.state import ConvergenceState
-from alphanso.validators import CommandValidator, GitConflictValidator, Validator
+from alphanso.validators import (
+    CommandValidator,
+    GitConflictValidator,
+    TestSuiteValidator,
+    Validator,
+)
 
 
 def create_validators(
@@ -60,10 +65,20 @@ def create_validators(
                     working_dir=working_dir,
                 )
             )
+        elif validator_type == "test-suite":
+            validators.append(
+                TestSuiteValidator(
+                    name=config.get("name", "Test Suite"),
+                    command=config.get("command", ""),
+                    timeout=config.get("timeout", 1800.0),
+                    capture_lines=config.get("capture_lines", 200),
+                    working_directory=working_dir,
+                )
+            )
         else:
             raise ValueError(
                 f"Unknown validator type: {validator_type}. "
-                f"Supported types: command, git-conflict"
+                f"Supported types: command, git-conflict, test-suite"
             )
 
     return validators
