@@ -1,0 +1,35 @@
+name: "Python Dependency Upgrade"
+max_attempts: 5
+working_directory: "my-project"
+
+# Pre-actions - upgrade the dependency
+pre_actions:
+  - command: "source venv/bin/activate && pip install -q -e ../analytics-v2"
+    description: "Upgrade analytics package to v2.0"
+
+# Validators - check import, syntax, and tests
+validators:
+  - type: command
+    name: "Import Check"
+    command: "source venv/bin/activate && python -c 'from src.main import main'"
+    timeout: 10
+
+  - type: command
+    name: "Syntax Check"
+    command: "source venv/bin/activate && python -m py_compile src/main.py tests/test_main.py"
+    timeout: 10
+
+  - type: test-suite
+    name: "Unit Tests"
+    command: "source venv/bin/activate && pytest tests/ -v"
+    timeout: 60
+
+# Agent configuration
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5@20250929"
+    system_prompt_file: "prompts/upgrade-assistant.txt"
+
+retry_strategy:
+  type: hybrid

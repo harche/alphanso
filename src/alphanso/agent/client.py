@@ -102,8 +102,9 @@ class ConvergenceAgent:
         options = ClaudeAgentOptions(
             model=self.model,
             cwd=self.working_directory,
-            # Let SDK automatically select appropriate tools
-            permission_mode="acceptEdits",  # Auto-accept file edits
+            # Bypass all permission checks - appropriate for automated convergence loop
+            # in controlled environments (user's project directory)
+            permission_mode="bypassPermissions",  # Unrestricted mode for automation
         )
 
         # Combine system prompt and user message
