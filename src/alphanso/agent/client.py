@@ -110,6 +110,20 @@ class ConvergenceAgent:
         # Combine system prompt and user message
         full_prompt = f"{system_prompt}\n\n{user_message}"
 
+        # DEBUG: Print the context being sent to AI
+        print("=" * 70)
+        print("DEBUG: CONTEXT SENT TO AI")
+        print("=" * 70)
+        print()
+        print("--- SYSTEM PROMPT ---")
+        print(system_prompt)
+        print()
+        print("--- USER MESSAGE ---")
+        print(user_message)
+        print()
+        print("=" * 70)
+        print()
+
         # Collect all response messages
         messages: list[str] = []
         tool_call_count = 0

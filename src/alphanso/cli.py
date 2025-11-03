@@ -53,26 +53,15 @@ def run(config: Path, var: tuple[str, ...]) -> None:
     click.echo()
 
     # Load configuration from YAML
+    # Note: from_yaml() automatically loads system_prompt_file content into system_prompt field
     try:
         config_obj = ConvergenceConfig.from_yaml(config)
     except Exception as e:
         click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)
 
-    # Load system prompt from file
-    system_prompt_content = ""
-    if config_obj.agent.claude.system_prompt_file:
-        prompt_file_path = config.parent / config_obj.agent.claude.system_prompt_file
-        if not prompt_file_path.exists():
-            click.echo(
-                f"Error: System prompt file not found: {prompt_file_path}", err=True
-            )
-            sys.exit(1)
-        try:
-            system_prompt_content = prompt_file_path.read_text()
-        except Exception as e:
-            click.echo(f"Error reading system prompt file: {e}", err=True)
-            sys.exit(1)
+    # Extract system prompt content (already loaded by from_yaml())
+    system_prompt_content = config_obj.agent.claude.system_prompt or None
 
     # Run convergence using API
     # Note: All output is now printed in real-time by the graph nodes

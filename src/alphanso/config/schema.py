@@ -39,12 +39,17 @@ class ClaudeAgentConfig(BaseModel):
 
     Attributes:
         model: Claude model identifier
+        system_prompt: Custom system prompt content (populated from system_prompt_file)
         system_prompt_file: Optional path to file containing custom system prompt
     """
 
     model: str = Field(
         default="claude-sonnet-4-5@20250929",
         description="Claude model identifier (Vertex AI format)",
+    )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Custom system prompt content defining agent's role and task",
     )
     system_prompt_file: str | None = Field(
         default=None,
@@ -227,7 +232,7 @@ class ConvergenceConfig(BaseModel):
                 if not prompt_path.is_absolute():
                     prompt_path = path_obj.parent / prompt_path
 
-                # Read file and replace with content
+                # Read file and populate system_prompt field
                 if not prompt_path.exists():
                     raise FileNotFoundError(
                         f"System prompt file not found: {prompt_path}"
@@ -236,8 +241,7 @@ class ConvergenceConfig(BaseModel):
                 with open(prompt_path) as f:
                     claude_config["system_prompt"] = f.read()
 
-                # Remove file reference before validation
-                del claude_config["system_prompt_file"]
+                # Keep system_prompt_file in config for reference
 
         return cls.model_validate(data)
 
