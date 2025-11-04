@@ -17,10 +17,50 @@ from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.text import Text
 
 # Define custom TRACE log level (below DEBUG)
 TRACE = 5
 logging.addLevelName(TRACE, "TRACE")
+
+# Store logging start time for relative timestamps
+_logging_start_time = None
+
+
+class RelativeTimeFormatter(logging.Formatter):
+    """Formatter that shows relative/elapsed time in seconds."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format with relative time in seconds."""
+        # Add elapsed_time attribute to record (in seconds)
+        record.elapsed_time = f"+{record.relativeCreated / 1000:5.1f}s"
+        return super().format(record)
+
+
+class RelativeTimeRichHandler(RichHandler):
+    """RichHandler with relative/elapsed time display.
+
+    Shows time as +X.Xs format (e.g., +0.5s, +10.2s) instead of wall clock time.
+    Useful for tracking operation timing and performance.
+    """
+
+    def get_level_text(self, record: logging.LogRecord) -> Text:
+        """Override to add relative time before level."""
+        global _logging_start_time
+        if _logging_start_time is None:
+            _logging_start_time = record.created
+
+        # Calculate elapsed time in seconds
+        elapsed = record.created - _logging_start_time
+
+        # Format as +X.Xs
+        time_text = Text(f"+{elapsed:5.1f}s", style="log.time")
+
+        # Get level text from parent
+        level_text = super().get_level_text(record)
+
+        # Combine time + level
+        return time_text + Text(" ") + level_text
 
 
 def trace(self, message, *args, **kwargs):
@@ -149,19 +189,19 @@ def setup_logging(
     # Console handler with Rich formatting
     if enable_colors and sys.stdout.isatty():
         console = Console(file=sys.stdout, force_terminal=True)
-        console_handler = RichHandler(
+        console_handler = RelativeTimeRichHandler(
             console=console,
-            show_time=False,  # We'll handle timestamps in file logging
-            show_path=False,  # Don't show file path in console
+            show_time=False,  # We handle time in get_level_text()
+            show_path=True,  # Show module/logger name
             rich_tracebacks=True,
             tracebacks_show_locals=True,
             markup=True,  # Allow rich markup in messages
         )
     else:
-        # Fallback to standard stream handler
+        # Fallback to standard stream handler with relative time
         console_handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt="%(levelname)s - %(name)s - %(message)s"
+        formatter = RelativeTimeFormatter(
+            fmt="%(elapsed_time)s  %(name)-25s  %(levelname)-8s  %(message)s"
         )
         console_handler.setFormatter(formatter)
 
