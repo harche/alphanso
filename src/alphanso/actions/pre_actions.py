@@ -88,9 +88,9 @@ class PreAction:
         # Substitute variables in command
         expanded_command = self._substitute_vars(self.command, env_vars)
 
-        logger.debug(f"Pre-action: {self.description}")
-        logger.debug(f"Command (expanded): {expanded_command}")
-        logger.debug(f"Working directory: {working_dir}")
+        logger.info(f"Pre-action: {self.description}")
+        logger.info(f"Command (expanded): {expanded_command}")
+        logger.info(f"Working directory: {working_dir}")
 
         # Run command with timing
         start = time.time()
@@ -104,7 +104,7 @@ class PreAction:
                 cwd=working_dir,  # Execute in specified directory
             )
 
-            logger.debug(f"Pre-action exit code: {result.returncode}")
+            logger.info(f"Pre-action exit code: {result.returncode}")
 
             return PreActionResult(
                 action=self.description,

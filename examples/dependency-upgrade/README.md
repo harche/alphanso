@@ -145,33 +145,40 @@ pytest tests/ -v  # All pass with v2.0!
 
 ### Logging Options
 
-Control output verbosity with logging flags:
+Control output verbosity with logging flags (default shows all important info):
 
 ```bash
-# Default (WARNING): Only errors and warnings
+# Default (INFO): Show all important output - validator results, AI actions, context
 uv run alphanso run --config config.yaml
 
-# INFO level (-v): Show progress and validator results
+# DEBUG level (-v): Add workflow tracking - node transitions, detailed tool I/O
 uv run alphanso run --config config.yaml -v
 
-# DEBUG level (-vv): Show detailed diagnostics including AI context
+# TRACE level (-vv): Add state dumps and development diagnostics
 uv run alphanso run --config config.yaml -vv
 
+# Quiet mode: Only errors
+uv run alphanso run --config config.yaml -q
+
 # Save logs to file for later analysis
-uv run alphanso run --config config.yaml -vv --log-file upgrade-debug.log
+uv run alphanso run --config config.yaml --log-file upgrade.log
 
 # Save logs in JSON format for parsing
-uv run alphanso run --config config.yaml -v --log-file upgrade.json --log-format json
+uv run alphanso run --config config.yaml --log-file upgrade.json --log-format json
 ```
 
-**Recommended for debugging**:
+**Debugging tips**:
 ```bash
-# See exactly what Claude sees (system prompt and validation failures)
-uv run alphanso run --config config.yaml -vv --log-file debug.log
-grep "CONTEXT SENT TO AI" debug.log -A 100
+# Default output already shows context sent to Claude and tool usage
+uv run alphanso run --config config.yaml
 
-# Track AI's tool usage
-grep "Using tool" debug.log
+# Add workflow tracking to see state transitions
+uv run alphanso run --config config.yaml -v --log-file debug.log
+grep "Entering\|Routing" debug.log
+
+# Full diagnostics with state dumps
+uv run alphanso run --config config.yaml -vv --log-file trace.log
+grep "State dump" trace.log
 ```
 
 ## Requirements

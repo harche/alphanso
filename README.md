@@ -94,8 +94,8 @@ export ANTHROPIC_API_KEY="your-api-key"
 export ANTHROPIC_VERTEX_PROJECT_ID="your-project-id"
 gcloud auth application-default login
 
-# Run the hello world example (with -v for INFO level output)
-uv run alphanso run --config examples/hello-world/config.yaml -vv
+# Run the hello world example
+uv run alphanso run --config examples/hello-world/config.yaml
 ```
 
 This example demonstrates:
@@ -166,14 +166,15 @@ uv run alphanso run --config examples/hello-world/config.yaml
 # Pass environment variables
 uv run alphanso run --config config.yaml --var K8S_TAG=v1.35.0 --var RELEASE=4.22
 
-# Control logging verbosity
-uv run alphanso run --config config.yaml -v              # INFO level
-uv run alphanso run --config config.yaml -vv             # DEBUG level
+# Control logging verbosity (default is INFO - shows all important info)
+uv run alphanso run --config config.yaml                 # Default (INFO level)
+uv run alphanso run --config config.yaml -v              # DEBUG level (workflow tracking)
+uv run alphanso run --config config.yaml -vv             # TRACE level (state dumps)
 uv run alphanso run --config config.yaml -q              # Quiet (errors only)
 
 # Write logs to file
-uv run alphanso run --config config.yaml -vv --log-file debug.log
-uv run alphanso run --config config.yaml -v --log-file logs.json --log-format json
+uv run alphanso run --config config.yaml --log-file output.log
+uv run alphanso run --config config.yaml --log-file logs.json --log-format json
 ```
 
 ### Using the Python API
@@ -251,30 +252,30 @@ Alphanso provides comprehensive logging with Rich console output, structured JSO
 Control logging output with command-line flags:
 
 ```bash
-# Default: WARNING level (errors and warnings only)
+# Default: INFO level (show all important info - validator results, AI actions, context)
 uv run alphanso run --config config.yaml
 
-# INFO level: Show progress and key events
+# DEBUG level: Add workflow tracking and state transitions
 uv run alphanso run --config config.yaml -v
 
-# DEBUG level: Show detailed diagnostics
+# TRACE level: Add state dumps and development diagnostics
 uv run alphanso run --config config.yaml -vv
 
 # Quiet mode: Errors only
 uv run alphanso run --config config.yaml -q
 
 # Write logs to file (text format)
-uv run alphanso run --config config.yaml -vv --log-file debug.log
+uv run alphanso run --config config.yaml --log-file output.log
 
 # Write logs to file (JSON format for parsing)
-uv run alphanso run --config config.yaml -vv --log-file logs.json --log-format json
+uv run alphanso run --config config.yaml --log-file logs.json --log-format json
 ```
 
 **Log Levels**:
 - **ERROR** (`-q`): Only critical errors
-- **WARNING** (default): Errors and warnings
-- **INFO** (`-v`): Progress updates, validator results, AI actions
-- **DEBUG** (`-vv`): Detailed diagnostics, context sent to AI, full command output
+- **INFO** (default): All important output - validator results, AI actions, tool usage, context sent to AI
+- **DEBUG** (`-v`): Add workflow tracking - node transitions, routing decisions, detailed tool I/O
+- **TRACE** (`-vv`): Add state dumps and dev diagnostics - full state at key points, internal details
 
 **Log Formats**:
 - **text**: Human-readable colored output (Rich console)

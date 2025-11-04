@@ -5,6 +5,7 @@ This module provides comprehensive logging setup with support for:
 - Text file logging with detailed formatting
 - Structured JSON logging for machine parsing
 - Configurable log levels for both CLI and API users
+- Custom TRACE level (5) for ultra-verbose diagnostics
 """
 
 import json
@@ -16,6 +17,20 @@ from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
+
+# Define custom TRACE log level (below DEBUG)
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+
+
+def trace(self, message, *args, **kwargs):
+    """Log a message with severity 'TRACE' on this logger."""
+    if self.isEnabledFor(TRACE):
+        self._log(TRACE, message, args, **kwargs)
+
+
+# Add trace method to Logger class
+logging.Logger.trace = trace  # type: ignore
 
 
 class JSONFormatter(logging.Formatter):

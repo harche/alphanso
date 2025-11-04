@@ -57,9 +57,9 @@ class CommandValidator(Validator):
         Returns:
             ValidationResult with command output and exit status
         """
-        logger.debug(f"Running command: {self.command}")
-        logger.debug(f"Working directory: {self.working_dir}")
-        logger.debug(f"Timeout: {self.timeout}s")
+        logger.info(f"Running command: {self.command}")
+        logger.info(f"Working directory: {self.working_dir}")
+        logger.info(f"Timeout: {self.timeout}s")
 
         result = subprocess.run(
             self.command,
@@ -70,7 +70,7 @@ class CommandValidator(Validator):
             cwd=self.working_dir,
         )
 
-        logger.debug(f"Command exit code: {result.returncode}")
+        logger.info(f"Command exit code: {result.returncode}")
 
         # Capture last N lines
         stdout_lines = result.stdout.split("\n") if result.stdout else []

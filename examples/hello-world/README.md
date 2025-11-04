@@ -43,33 +43,39 @@ alphanso run --config ../../config.yaml --verbose
 
 ## Logging Options
 
-Control output verbosity with logging flags:
+Control output verbosity with logging flags (default shows all important info):
 
 ```bash
-# Default (WARNING): Only errors and warnings
+# Default (INFO): Show all important output - validator results, AI actions, context
 alphanso run --config config.yaml
 
-# INFO level (-v): Show progress and key events
+# DEBUG level (-v): Add workflow tracking - node transitions, state changes
 alphanso run --config config.yaml -v
 
-# DEBUG level (-vv): Show detailed diagnostics including AI context
+# TRACE level (-vv): Add state dumps and development diagnostics
 alphanso run --config config.yaml -vv
-
-# Save logs to file (text format)
-alphanso run --config config.yaml -vv --log-file debug.log
-
-# Save logs to file (JSON format for parsing)
-alphanso run --config config.yaml -v --log-file logs.json --log-format json
 
 # Quiet mode: Only errors
 alphanso run --config config.yaml -q
+
+# Save logs to file (text format)
+alphanso run --config config.yaml --log-file output.log
+
+# Save logs to file (JSON format for parsing)
+alphanso run --config config.yaml --log-file logs.json --log-format json
 ```
 
-**Recommended for debugging**:
+**Debugging tips**:
 ```bash
-# See exactly what context is sent to Claude
-alphanso run --config config.yaml -vv --log-file debug.log
-grep "CONTEXT SENT TO AI" debug.log -A 50
+# Default output already shows context sent to Claude
+alphanso run --config config.yaml
+
+# Add workflow tracking for deeper debugging
+alphanso run --config config.yaml -v --log-file debug.log
+grep "Entering\|Exiting\|Routing" debug.log
+
+# Full state dumps for development
+alphanso run --config config.yaml -vv --log-file trace.log
 ```
 
 ## Expected Behavior

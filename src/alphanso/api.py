@@ -110,10 +110,10 @@ def run_convergence(
         working_directory = config.working_directory
     working_dir_str = str(Path(working_directory).absolute())
 
-    logger.debug(f"Working directory: {working_dir_str}")
-    logger.debug(f"Max attempts: {config.max_attempts}")
-    logger.debug(f"Pre-actions: {len(config.pre_actions)}")
-    logger.debug(f"Validators: {len(config.validators)}")
+    logger.info(f"Working directory: {working_dir_str}")
+    logger.info(f"Max attempts: {config.max_attempts}")
+    logger.info(f"Pre-actions: {len(config.pre_actions)}")
+    logger.info(f"Validators: {len(config.validators)}")
 
     # Create initial state
     initial_state: ConvergenceState = {

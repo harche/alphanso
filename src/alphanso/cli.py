@@ -8,7 +8,7 @@ import click
 
 from alphanso.api import run_convergence
 from alphanso.config.schema import ConvergenceConfig
-from alphanso.utils.logging import setup_logging
+from alphanso.utils.logging import TRACE, setup_logging
 
 
 @click.group()
@@ -77,13 +77,13 @@ def run(
     # Setup logging based on verbosity flags
     # Map verbosity count to log level
     if quiet:
-        log_level = logging.ERROR
+        log_level = logging.ERROR  # -q: errors only
     elif verbose == 0:
-        log_level = logging.WARNING  # Default: warnings and errors only
+        log_level = logging.INFO  # Default: show all important info (validator results, AI actions, progress)
     elif verbose == 1:
-        log_level = logging.INFO  # -v: informational messages
+        log_level = logging.DEBUG  # -v: add workflow tracking, state transitions, detailed tool I/O
     else:  # verbose >= 2
-        log_level = logging.DEBUG  # -vv or more: debug messages
+        log_level = TRACE  # -vv: add state dumps, development diagnostics, ultra-verbose output
 
     # Initialize logging for entire application
     setup_logging(
@@ -112,7 +112,7 @@ def run(
     # Note: from_yaml() automatically loads system_prompt_file content into system_prompt field
     try:
         config_obj = ConvergenceConfig.from_yaml(config)
-        logger.debug(f"Configuration loaded successfully: {config_obj.name}")
+        logger.info(f"Configuration loaded successfully: {config_obj.name}")
     except Exception as e:
         logger.error(f"Error loading configuration: {e}", exc_info=True)
         sys.exit(1)
@@ -120,7 +120,7 @@ def run(
     # Extract system prompt content (already loaded by from_yaml())
     system_prompt_content = config_obj.agent.claude.system_prompt or None
     if system_prompt_content:
-        logger.debug("Custom system prompt loaded from configuration")
+        logger.info("Custom system prompt loaded from configuration")
 
     # Run convergence using API
     try:
@@ -131,8 +131,8 @@ def run(
             working_dir = Path(config_obj.working_directory)
 
         logger.info(f"Starting convergence loop: {config_obj.name}")
-        logger.debug(f"Working directory: {working_dir.absolute()}")
-        logger.debug(f"Max attempts: {config_obj.max_attempts}")
+        logger.info(f"Working directory: {working_dir.absolute()}")
+        logger.info(f"Max attempts: {config_obj.max_attempts}")
 
         result = run_convergence(
             config=config_obj,

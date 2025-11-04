@@ -113,15 +113,15 @@ class ConvergenceAgent:
         # Combine system prompt and user message
         full_prompt = f"{system_prompt}\n\n{user_message}"
 
-        # Log the context being sent to AI (DEBUG level)
-        logger.debug("=" * 70)
-        logger.debug("CONTEXT SENT TO AI")
-        logger.debug("=" * 70)
-        logger.debug("--- SYSTEM PROMPT ---")
-        logger.debug(system_prompt)
-        logger.debug("--- USER MESSAGE ---")
-        logger.debug(user_message)
-        logger.debug("=" * 70)
+        # Log the context being sent to AI (INFO level - users need to see this)
+        logger.info("=" * 70)
+        logger.info("CONTEXT SENT TO AI")
+        logger.info("=" * 70)
+        logger.info("--- SYSTEM PROMPT ---")
+        logger.info(system_prompt)
+        logger.info("--- USER MESSAGE ---")
+        logger.info(user_message)
+        logger.info("=" * 70)
 
         # Collect all response messages
         messages: list[str] = []
@@ -151,29 +151,30 @@ class ConvergenceAgent:
 
                         # Claude's thinking process
                         elif isinstance(block, ThinkingBlock):
-                            logger.debug(f"🤔 Claude is thinking:")
-                            logger.debug(f"   {block.thinking}")
+                            logger.info(f"🤔 Claude is thinking:")
+                            logger.info(f"   {block.thinking}")
 
                         # Tool being used
                         elif isinstance(block, ToolUseBlock):
                             tool_call_count += 1
                             logger.info(f"🔧 Using tool: {block.name}")
-                            logger.debug(f"   Input: {block.input}")
+                            logger.info(f"   Input: {block.input}")
 
                         # Tool result
                         elif isinstance(block, ToolResultBlock):
-                            logger.debug(f"   ✅ Tool result:")
+                            logger.info(f"   ✅ Tool result:")
                             # Tool results can have content
                             if hasattr(block, "content"):
                                 for result_item in block.content:
                                     if isinstance(result_item, TextBlock):
                                         output = result_item.text
-                                        # Truncate long output
+                                        # Truncate long output at INFO, full at DEBUG
                                         if len(output) > 1000:
-                                            logger.debug(f"      {output[:1000]}")
-                                            logger.debug(f"      ... (truncated)")
+                                            logger.info(f"      {output[:1000]}")
+                                            logger.info(f"      ... (truncated)")
+                                            logger.debug(f"   Full tool output: {output}")
                                         else:
-                                            logger.debug(f"      {output}")
+                                            logger.info(f"      {output}")
 
         logger.info("=" * 70)
 
