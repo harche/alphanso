@@ -290,7 +290,7 @@ rm protoc-23.4-linux-x86_64.zip && "
       if ! $container_runtime run -it --rm -v "$(pwd):/go/k8s.io/kubernetes${selinux_flag}" \
         --workdir=/go/k8s.io/kubernetes \
         "$container_image" \
-        bash -c "${setup_cmd}go mod tidy && hack/update-vendor.sh && make update"; then
+        bash -c "${setup_cmd}go mod tidy && hack/update-vendor.sh && source hack/install-etcd.sh && make update"; then
         echo ""
         echo "Error: Container operations failed"
         echo "Please fix the errors and re-run the script"
