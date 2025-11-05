@@ -74,7 +74,14 @@ def build_user_message(state: ConvergenceState) -> str:
     for result in state.get("validation_results", []):
         if not result.get("success", True):
             message += f"## Validator: {result.get('validator_name', 'Unknown')}\n"
-            message += f"Exit Code: {result.get('exit_code', 'N/A')}\n\n"
+            message += f"Exit Code: {result.get('exit_code', 'N/A')}\n"
+
+            # Include the command that was executed
+            command = result.get('metadata', {}).get('command', '')
+            if command:
+                message += f"Command: `{command}`\n"
+
+            message += "\n"
 
             # Include stdout (truncated to last N lines)
             output = result.get('output', '')

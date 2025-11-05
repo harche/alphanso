@@ -120,9 +120,14 @@ class TestSetupLogging:
         logger = logging.getLogger("alphanso")
         assert len(logger.handlers) == 2  # Console + file
 
-        # Write a test message
-        test_logger = get_logger(__name__)
+        # Write a test message using alphanso logger (not test logger)
+        # This ensures the message goes to the configured handlers
+        test_logger = get_logger("alphanso.test")
         test_logger.info("Test message")
+
+        # Flush all handlers to ensure logs are written to file
+        for handler in logger.handlers:
+            handler.flush()
 
         # Check file contents
         assert log_file.exists()
@@ -138,9 +143,14 @@ class TestSetupLogging:
         logger = logging.getLogger("alphanso")
         assert len(logger.handlers) == 2  # Console + file
 
-        # Write a test message
-        test_logger = get_logger(__name__)
+        # Write a test message using alphanso logger (not test logger)
+        # This ensures the message goes to the configured handlers
+        test_logger = get_logger("alphanso.test")
         test_logger.info("JSON test message")
+
+        # Flush all handlers to ensure logs are written to file
+        for handler in logger.handlers:
+            handler.flush()
 
         # Check file contents
         assert log_file.exists()
@@ -198,6 +208,11 @@ class TestGetLogger:
 class TestIsLoggingConfigured:
     """Test is_logging_configured function."""
 
+    def setup_method(self):
+        """Clean up logging handlers before each test to ensure clean state."""
+        logger = logging.getLogger("alphanso")
+        logger.handlers.clear()
+
     def teardown_method(self):
         """Clean up logging handlers after each test."""
         logger = logging.getLogger("alphanso")
@@ -235,12 +250,16 @@ class TestLoggingIntegration:
         logger.addHandler(handler)
         logger.propagate = False
 
-        # Test different levels
-        test_logger = get_logger(__name__)
+        # Test different levels using alphanso logger (not test logger)
+        # This ensures the messages go to the configured handlers
+        test_logger = get_logger("alphanso.test")
         test_logger.debug("Debug message")
         test_logger.info("Info message")
         test_logger.warning("Warning message")
         test_logger.error("Error message")
+
+        # Flush handler to ensure output is written
+        handler.flush()
 
         output = stream.getvalue()
         assert "DEBUG - Debug message" in output
@@ -260,12 +279,16 @@ class TestLoggingIntegration:
         logger.addHandler(handler)
         logger.propagate = False
 
-        # Test different levels
-        test_logger = get_logger(__name__)
+        # Test different levels using alphanso logger (not test logger)
+        # This ensures the messages go to the configured handlers
+        test_logger = get_logger("alphanso.test")
         test_logger.debug("Debug message")  # Should not appear
         test_logger.info("Info message")  # Should not appear
         test_logger.warning("Warning message")  # Should appear
         test_logger.error("Error message")  # Should appear
+
+        # Flush handler to ensure output is written
+        handler.flush()
 
         output = stream.getvalue()
         assert "DEBUG" not in output

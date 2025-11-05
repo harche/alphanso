@@ -169,7 +169,7 @@ class TestGraphBuilder:
         assert duration < 0.1
 
     def test_graph_pre_actions_to_validate_to_decide_flow(self) -> None:
-        """Test graph follows pre_actions → validate → decide → END flow."""
+        """Test graph follows pre_actions → run_main_script → END (success) flow."""
         graph = create_convergence_graph()
 
         initial_state = create_test_state(
@@ -185,9 +185,10 @@ class TestGraphBuilder:
         assert len(final_state["pre_action_results"]) == 1
         assert final_state["pre_action_results"][0]["success"] is True
 
-        # Flow: validate sets success and empty results (placeholder)
-        assert final_state["success"] is True
-        assert final_state["validation_results"] == []
+        # Flow: main script succeeds, so we skip validation and go to END
+        assert final_state["main_script_succeeded"] is True
+        # Validation never runs when main script succeeds
+        assert final_state.get("validation_results") is None
 
     def test_graph_handles_multiple_pre_actions(self) -> None:
         """Test graph executes multiple pre-actions sequentially."""
@@ -213,7 +214,7 @@ class TestGraphBuilder:
         assert final_state["pre_action_results"][2]["action"] == "Third"
 
     def test_graph_with_failing_pre_action(self) -> None:
-        """Test graph continues even when pre-action fails."""
+        """Test graph ends immediately when pre-action fails."""
         graph = create_convergence_graph()
 
         initial_state = create_test_state(
@@ -226,7 +227,7 @@ class TestGraphBuilder:
 
         final_state = graph.invoke(initial_state)
 
-        # All pre-actions should run (failures don't stop execution)
+        # All pre-actions should run (failures don't stop execution within pre_actions_node)
         assert len(final_state["pre_action_results"]) == 3
 
         # Middle one failed
@@ -234,8 +235,10 @@ class TestGraphBuilder:
         assert final_state["pre_action_results"][1]["success"] is False
         assert final_state["pre_action_results"][2]["success"] is True
 
-        # Validation still succeeds (placeholder)
-        assert final_state["success"] is True
+        # When any pre-action fails, workflow terminates immediately
+        assert final_state["pre_actions_failed"] is True
+        # Main script never runs
+        assert final_state.get("main_script_succeeded") is None
 
 
 class TestGraphStateImmutability:
@@ -264,54 +267,46 @@ class TestGraphStateImmutability:
 
         # Final state should have updates
         assert final_state["pre_actions_completed"] is True
-        assert final_state["success"] is True
+        # With new script-centric workflow, main script succeeds so we skip validation
+        assert final_state["main_script_succeeded"] is True
 
 
 class TestGraphRetryLoop:
     """Tests for STEP 3: Retry loop with conditional edges."""
 
     def test_success_on_first_attempt_goes_to_end(self) -> None:
-        """Test that successful validation on first attempt goes directly to END."""
+        """Test that successful main script on first attempt goes directly to END."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [],  # No validators = success
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            validators_config=[],  # No validators = success
+        )
 
         final_state = graph.invoke(initial_state)
 
-        # Should succeed on first attempt
-        assert final_state["success"] is True
+        # Main script succeeds on first attempt
+        assert final_state["main_script_succeeded"] is True
         assert final_state["attempt"] == 0  # Never incremented
-        assert len(final_state["failure_history"]) == 0
+        # Validation never runs when main script succeeds
+        assert final_state.get("failure_history") is None
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     def test_failure_with_attempts_remaining_increments(self) -> None:
         """Test that validation failure with attempts remaining increments attempt."""
-        from alphanso.validators.command import CommandValidator
-
         graph = create_convergence_graph()
 
-        # Create a failing validator (command that always fails)
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 3,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+        # Make main script fail so that validation runs
+        # Validators also fail to trigger retry loop
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            max_attempts=3,
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Always Fail",
@@ -319,10 +314,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -337,15 +329,15 @@ class TestGraphRetryLoop:
         """Test that max attempts reached goes to END with failure."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 2,  # Only 2 attempts
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            max_attempts=2,  # Only 2 attempts
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Always Fail",
@@ -353,10 +345,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -370,15 +359,15 @@ class TestGraphRetryLoop:
         """Test that failure history accumulates correctly across attempts."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 3,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            max_attempts=3,
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Failing Test",
@@ -386,10 +375,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -408,15 +394,15 @@ class TestGraphRetryLoop:
         """Test that attempt counter increments on each retry."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 5,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            max_attempts=5,
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Fail",
@@ -424,10 +410,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -440,15 +423,15 @@ class TestGraphRetryLoop:
         """Test that graph can execute multiple validation loops."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 4,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            max_attempts=4,
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Fail",
@@ -456,10 +439,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -473,15 +453,17 @@ class TestGraphRetryLoop:
         """Test that state fields are preserved across retry loop iterations."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [],
-            "env_vars": {"CUSTOM_VAR": "preserved_value"},
-            "attempt": 0,
-            "max_attempts": 3,
-            "success": False,
-            "working_directory": "/custom/path",
-            "validators_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[],
+            env_vars={"CUSTOM_VAR": "preserved_value"},
+            max_attempts=3,
+            working_directory="/custom/path",
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "Fail",
@@ -489,10 +471,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -534,17 +513,17 @@ class TestGraphRetryLoop:
         """Integration test with real failing validator demonstrating retry loop."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'Setup complete'", "description": "Setup"}
             ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 3,
-            "success": False,
-            "working_directory": ".",
-            "validators_config": [
+            max_attempts=3,
+            main_script_config={
+                "command": "false",  # Main script always fails
+                "description": "Failing main script",
+                "timeout": 10,
+            },
+            validators_config=[
                 {
                     "type": "command",
                     "name": "File Check",
@@ -552,10 +531,7 @@ class TestGraphRetryLoop:
                     "timeout": 10,
                 }
             ],
-            "validation_results": [],
-            "failed_validators": [],
-            "failure_history": [],
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 

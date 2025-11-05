@@ -454,7 +454,7 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
     logger.debug(f"📤 Exiting validate_node | success={success}, failed={len(failed_validators)}, history_entries={len(updated_history)}")
 
     # TRACE: Full state dump for ultra-verbose diagnostics
-    logger.trace(f"🔍 State dump after validation:\n{{\n  success: {success},\n  attempt: {state.get('attempt', 0)}/{state.get('max_attempts', 10)},\n  failed_validators: {failed_validators},\n  validation_results: {len(validation_results)} results,\n  failure_history: {len(updated_history)} entries\n}}")  # type: ignore
+    logger.debug(f"🔍 State dump after validation:\n{{\n  success: {success},\n  attempt: {state.get('attempt', 0)}/{state.get('max_attempts', 10)},\n  failed_validators: {failed_validators},\n  validation_results: {len(validation_results)} results,\n  failure_history: {len(updated_history)} entries\n}}")
 
     return {
         "success": success,
@@ -657,7 +657,7 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
         logger.debug(f"📤 Exiting ai_fix_node | Agent completed with {response.get('tool_call_count', 0)} tool calls")
 
         # TRACE: Full AI response dump for ultra-verbose diagnostics
-        logger.trace(f"🔍 Full AI response dump:\n{{\n  content: {response.get('content', [])[:200]}{'...' if len(str(response.get('content', []))) > 200 else ''},\n  tool_call_count: {response.get('tool_call_count', 0)},\n  stop_reason: {response.get('stop_reason', 'unknown')}\n}}")  # type: ignore
+        logger.debug(f"🔍 Full AI response dump:\n{{\n  content: {response.get('content', [])[:200]}{'...' if len(str(response.get('content', []))) > 200 else ''},\n  tool_call_count: {response.get('tool_call_count', 0)},\n  stop_reason: {response.get('stop_reason', 'unknown')}\n}}")
 
         return {
             "ai_response": response,
