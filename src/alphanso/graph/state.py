@@ -46,6 +46,7 @@ class ConvergenceState(TypedDict, total=False):
     Attributes:
         # Pre-actions (run once at start)
         pre_actions_completed: Whether pre-actions have been run
+        pre_actions_failed: Whether any pre-action failed (causes immediate termination)
         pre_action_results: Results from pre-action executions
         pre_actions_config: Configuration for pre-actions (commands to run)
 
@@ -83,6 +84,7 @@ class ConvergenceState(TypedDict, total=False):
 
     # Pre-actions (run once at start)
     pre_actions_completed: bool
+    pre_actions_failed: bool
     pre_action_results: list[PreActionResult]
     pre_actions_config: list[dict[str, str]]
 

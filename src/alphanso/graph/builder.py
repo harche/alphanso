@@ -9,7 +9,7 @@ from typing import TypeAlias
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from alphanso.graph.edges import should_continue
+from alphanso.graph.edges import check_pre_actions, should_continue
 from alphanso.graph.nodes import (
     ai_fix_node,
     decide_node,
@@ -35,9 +35,13 @@ def create_convergence_graph() -> ConvergenceGraph:
 
     The graph structure with STEP 4 AI agent integration:
 
-    START → pre_actions → validate → decide → {end_success, end_failure, retry}
-                            ↑                           │
-                            └─ ai_fix ← increment_attempt ←──────┘
+    START → pre_actions → {validate, END} → decide → {end_success, end_failure, retry}
+                ↓                              ↑                           │
+         check_pre_actions()                   └─ ai_fix ← increment_attempt ←──────┘
+
+    Conditional routing from pre_actions node:
+    - "continue_to_validate": All pre-actions succeeded → validate
+    - "end_pre_action_failure": Any pre-action failed → END (with error)
 
     Conditional routing from decide node:
     - "end_success": All validators passed → END (success)
@@ -80,7 +84,18 @@ def create_convergence_graph() -> ConvergenceGraph:
 
     # Add linear edges (setup phase)
     graph.add_edge(START, "pre_actions")
-    graph.add_edge("pre_actions", "validate")
+
+    # Add conditional edge after pre_actions to check for failures
+    # If pre-actions fail, end immediately; otherwise continue to validation
+    graph.add_conditional_edges(
+        "pre_actions",
+        check_pre_actions,
+        {
+            "continue_to_validate": "validate",
+            "end_pre_action_failure": END,
+        },
+    )
+
     graph.add_edge("validate", "decide")
 
     # Add conditional edges (retry loop logic with AI)

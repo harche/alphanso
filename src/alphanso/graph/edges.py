@@ -9,8 +9,11 @@ from typing import Literal
 
 from alphanso.graph.state import ConvergenceState
 
-# Type alias for possible routing decisions
+# Type alias for possible routing decisions from decide node
 EdgeDecision = Literal["end_success", "end_failure", "retry"]
+
+# Type alias for pre-actions routing
+PreActionDecision = Literal["continue_to_validate", "end_pre_action_failure"]
 
 
 def should_continue(state: ConvergenceState) -> EdgeDecision:
@@ -60,3 +63,36 @@ def should_continue(state: ConvergenceState) -> EdgeDecision:
 
     # Validators failed but attempts remain - retry
     return "retry"
+
+
+def check_pre_actions(state: ConvergenceState) -> PreActionDecision:
+    """Determine whether to continue or exit after pre-actions.
+
+    This routing function checks if pre-actions succeeded or failed.
+    If any pre-action failed, the workflow terminates immediately.
+    Otherwise, it proceeds to validation.
+
+    Args:
+        state: Current convergence state with pre-action results
+
+    Returns:
+        "continue_to_validate" - All pre-actions succeeded, proceed to validation
+        "end_pre_action_failure" - At least one pre-action failed, terminate workflow
+
+    Flow:
+        pre_actions → check_pre_actions() →
+            ├─ "continue_to_validate" → validate
+            └─ "end_pre_action_failure" → END (with error)
+
+    Examples:
+        >>> state = {"pre_actions_failed": False}
+        >>> check_pre_actions(state)
+        'continue_to_validate'
+
+        >>> state = {"pre_actions_failed": True}
+        >>> check_pre_actions(state)
+        'end_pre_action_failure'
+    """
+    if state.get("pre_actions_failed", False):
+        return "end_pre_action_failure"
+    return "continue_to_validate"

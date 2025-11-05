@@ -1,0 +1,41 @@
+name: "Openshift kubernetes rebase"
+max_attempts: 100
+working_directory: "kubernetes"
+
+# Pre-actions - Run the rebasing script
+pre_actions:
+  - command: "pwd"
+    description: "Setup kubernetes fork repo"
+
+# Validators - check build and tests
+validators:
+  - type: command
+    name: "Openshift rebase check"
+    command: "../ocp-rebase.sh --k8s-tag=v1.35.0-alpha.2 --openshift-release=release-4.22"
+    timeout: 600
+  
+  - type: command
+    name: "Make update"
+    command: "source hack/install-etcd.sh ; make update"
+    timeout: 900
+
+  - type: command
+    name: "build"
+    command: "make"
+    timeout: 600
+
+  - type: test-suite
+    name: "Unit Tests"
+    command: "make test"
+    timeout: 1800
+
+
+# Agent configuration
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5@20250929"
+    system_prompt_file: "prompts/rebase-assistant.txt"
+
+retry_strategy:
+  type: hybrid

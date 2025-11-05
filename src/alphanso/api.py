@@ -152,25 +152,30 @@ def run_convergence(
     logger.info("Executing convergence loop...")
     final_state = graph.invoke(initial_state)
 
-    # Determine overall success (all pre-actions succeeded)
-    all_success = all(
-        result["success"] for result in final_state["pre_action_results"]
-    )
+    # Determine overall success
+    # Success requires:
+    # 1. All pre-actions succeeded (no pre_actions_failed flag)
+    # 2. All validators passed (success=True)
+    pre_actions_succeeded = not final_state.get("pre_actions_failed", False)
+    validators_succeeded = final_state.get("success", False)
+    overall_success = pre_actions_succeeded and validators_succeeded
 
     # Build result
     result: ConvergenceResult = {
-        "success": all_success,
+        "success": overall_success,
         "pre_action_results": final_state["pre_action_results"],
         "config_name": config.name,
         "working_directory": final_state["working_directory"],
     }
 
     logger.info("=" * 70)
-    if all_success:
+    if overall_success:
         logger.info(f"✅ Convergence completed successfully")
-    else:
+    elif not pre_actions_succeeded:
         failed_count = sum(1 for r in final_state["pre_action_results"] if not r["success"])
-        logger.warning(f"❌ Convergence completed with {failed_count} failure(s)")
+        logger.error(f"❌ Pre-actions failed ({failed_count} failure(s)) - workflow terminated")
+    else:
+        logger.error(f"❌ Validation failed after {final_state.get('attempt', 0) + 1} attempt(s)")
     logger.info("=" * 70)
 
     return result

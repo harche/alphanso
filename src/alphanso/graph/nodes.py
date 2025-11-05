@@ -91,14 +91,14 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     """Run pre-actions before entering convergence loop.
 
     Pre-actions are setup commands that run once (e.g., git merge, container setup,
-    go mod tidy). They execute sequentially, and failures are captured but don't
-    stop execution - they'll be caught in the subsequent validation phase.
+    go mod tidy). They execute sequentially. If any pre-action fails, the workflow
+    will terminate with an error and not proceed to validation.
 
     Args:
         state: Current convergence state
 
     Returns:
-        Updated state with pre_actions_completed=True and pre_action_results
+        Updated state with pre_actions_completed=True, pre_action_results, and pre_actions_failed flag
 
     Example:
         >>> state = {
@@ -138,6 +138,7 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         env_vars.setdefault("WORKING_DIR", working_dir)
 
     # Run each pre-action
+    all_succeeded = True
     for idx, action_config in enumerate(state.get("pre_actions_config", []), 1):
         pre_action = PreAction(
             command=action_config.get("command", ""),
@@ -161,25 +162,41 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
                 # Log full output at debug level
                 logger.debug(f"Full output: {result['output']}")
         else:
-            logger.warning(f"     ❌ Failed")
+            all_succeeded = False
+            logger.error(f"     ❌ Failed")
             if result["stderr"]:
-                logger.warning(f"     │ {result['stderr'][:200]}")
+                logger.error(f"     │ {result['stderr'][:200]}")
             logger.debug(f"Full stderr: {result['stderr']}")
+
+    # Check if any pre-actions failed
+    if not all_succeeded:
+        logger.error("=" * 70)
+        logger.error("❌ Pre-actions FAILED - workflow will terminate")
+        logger.error("=" * 70)
+        logger.debug(f"📤 Exiting pre_actions_node | pre_actions_failed=True, {len(results)} results")
+        return {
+            "pre_actions_completed": True,
+            "pre_action_results": results,
+            "pre_actions_failed": True,
+        }
 
     # Return state updates (LangGraph will merge these)
     logger.debug(f"📤 Exiting pre_actions_node | Updating: pre_actions_completed=True, {len(results)} results")
     return {
         "pre_actions_completed": True,
         "pre_action_results": results,
+        "pre_actions_failed": False,
     }
 
 
 def validate_node(state: ConvergenceState) -> dict[str, Any]:
     """Run validators to check current state.
 
-    Executes all configured validators (build, test, conflict checks, etc.)
-    and captures results. Validators are run by the framework to check
-    conditions - they are NOT tools for the AI agent.
+    Executes configured validators (build, test, conflict checks, etc.) in order
+    until one fails or all pass. Stops immediately on first failure to allow
+    AI agent to fix the issue without wasting time on subsequent validators.
+    Validators are run by the framework to check conditions - they are NOT tools
+    for the AI agent.
 
     Args:
         state: Current convergence state
@@ -225,6 +242,7 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
     validators = create_validators(validators_config, working_dir)
 
     # Run each validator and collect results
+    # IMPORTANT: Stop on first failure to call AI immediately with the error
     validation_results = []
     failed_validators = []
 
@@ -253,6 +271,11 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
                 logger.info(f"     │ {first_error[:80]}")
             # Log full error at INFO level (users need to see it)
             logger.info(f"Full stderr: {result['stderr']}")
+
+            # Stop on first failure - don't run remaining validators
+            # This allows AI to fix the issue immediately
+            logger.info(f"⚠️  Stopping validation after first failure (skipping {len(validators) - idx} remaining validator(s))")
+            break
 
     # Determine overall success
     success = len(failed_validators) == 0
