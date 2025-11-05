@@ -281,7 +281,8 @@ if [ $merge_exit_code -eq 0 ]; then
       # Determine setup commands based on container image
       setup_cmd=""
       if [[ "$container_image" == "golang:"* ]]; then
-        setup_cmd="apt-get update -qq && apt-get install -y -qq jq unzip wget && \
+        # golang image needs jq, protoc 23.4, iproute2 (for ss), and rsync installed
+        setup_cmd="apt-get update -qq && apt-get install -y -qq jq unzip wget iproute2 rsync && \
 wget -q https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-linux-x86_64.zip && \
 unzip -q protoc-23.4-linux-x86_64.zip -d /usr/local && \
 rm protoc-23.4-linux-x86_64.zip && "
