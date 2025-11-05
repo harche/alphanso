@@ -92,9 +92,18 @@ def create_validators(
 def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     """Run pre-actions before entering convergence loop.
 
-    Pre-actions are setup commands that run once (e.g., git merge, container setup,
-    go mod tidy). They execute sequentially. If any pre-action fails, the workflow
-    will terminate with an error and not proceed to validation.
+    Pre-actions are setup commands that run once (e.g., git clone, mkdir, setup scripts).
+    They execute sequentially in the CURRENT DIRECTORY (not working_directory), which
+    allows them to create/setup the working directory itself. If any pre-action fails,
+    the workflow will terminate with an error and not proceed to validation.
+
+    IMPORTANT: Pre-actions run in current directory, NOT in working_directory.
+    This design allows pre-actions to:
+    - Create the working directory (e.g., git clone)
+    - Setup the environment before entering working_directory
+    - Run setup scripts from the project root
+
+    Main script and validators will run in working_directory.
 
     Args:
         state: Current convergence state
@@ -132,7 +141,11 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     env_vars = state.get("env_vars", {})
     working_dir = state.get("working_directory")
 
-    logger.info(f"Working directory: {working_dir}")
+    # IMPORTANT: Pre-actions run in CURRENT DIRECTORY, not working_directory
+    # This allows pre-actions to create/setup the working directory itself
+    # (e.g., setup.sh can clone into kubernetes/, mkdir, etc.)
+    logger.info(f"Pre-actions run in: current directory (where config file is)")
+    logger.info(f"Main script/validators will run in: {working_dir or 'current directory'}")
     logger.info(f"Environment variables: {list(env_vars.keys())}")
 
     # Add common variables from state
@@ -150,7 +163,9 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         # Show what we're running
         logger.info(f"[{idx}/{len(state.get('pre_actions_config', []))}] {pre_action.description}")
 
-        result = pre_action.run(env_vars, working_dir=working_dir)
+        # Pre-actions run in current directory (None = current directory)
+        # NOT in working_directory, so they can create/setup that directory
+        result = pre_action.run(env_vars, working_dir=None)
         results.append(result)
 
         # Show result

@@ -172,6 +172,53 @@ class TestPreAction:
 class TestPreActionsNode:
     """Tests for pre_actions_node function."""
 
+    def test_pre_actions_run_in_current_directory_not_working_directory(self) -> None:
+        """Test that pre-actions run in current directory, allowing them to create working_directory."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Change to temp directory
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+
+                state: ConvergenceState = {
+                    "pre_actions_completed": False,
+                    "pre_actions_config": [
+                        # This pre-action creates the working directory
+                        {"command": "mkdir -p my_workspace", "description": "Create workspace"},
+                        # This verifies we're in temp_dir (current), not my_workspace
+                        {"command": "pwd", "description": "Show current dir"},
+                    ],
+                    "pre_action_results": [],
+                    "env_vars": {},
+                    "working_directory": "my_workspace",  # Doesn't exist yet!
+                }
+
+                updated_state = pre_actions_node(state)
+
+                # Pre-actions should succeed
+                assert updated_state["pre_actions_completed"] is True
+                assert len(updated_state["pre_action_results"]) == 2
+                assert all(r["success"] for r in updated_state["pre_action_results"])
+
+                # Verify workspace was created in current directory
+                workspace = Path(temp_dir) / "my_workspace"
+                assert workspace.exists(), "Pre-action should create working_directory in current dir"
+                assert workspace.is_dir()
+
+                # Verify pwd showed current directory (temp_dir), not my_workspace
+                pwd_output = updated_state["pre_action_results"][1]["output"].strip()
+                # On macOS, temp dirs have symlink: /var -> /private/var, so resolve both
+                pwd_path = Path(pwd_output).resolve()
+                temp_path = Path(temp_dir).resolve()
+                assert pwd_path == temp_path, f"Pre-action should run in current dir ({temp_path}), not working_directory. Got: {pwd_path}"
+
+            finally:
+                os.chdir(original_cwd)
+
     def test_runs_all_actions_sequentially(self) -> None:
         """Test 5: Pre-actions node runs all actions sequentially."""
         state: ConvergenceState = {
