@@ -11,30 +11,65 @@ working_directory: "kubernetes"
 #   - Find scripts next to config file (e.g., ./setup.sh)
 #   - Create/setup the working_directory
 pre_actions:
-  - command: "./setup.sh --fork-repo=git@github.com:harche/kubernetes.git"
+  - command: "bash -c './setup.sh --fork-repo=git@github.com:harche/kubernetes.git'"
     description: "Setup kubernetes fork repository (creates kubernetes/ directory)"
 
 # Main script - The goal to retry until it succeeds (runs in working_directory)
 main_script:
-  command: "../ocp-rebase.sh --k8s-tag=v1.35.0-alpha.2 --openshift-release=release-4.22"
+  command: "bash -c '../ocp-rebase.sh --k8s-tag=v1.35.0-alpha.2 --openshift-release=release-4.22'"
   description: "Rebase OpenShift kubernetes fork to upstream tag"
   timeout: 600
 
 # Validators - Health checks (only run when main script fails, run in working_directory)
 validators:
   - type: command
+    name: "Go mod tidy"
+    command: "bash -c 'go mod tidy'"
+    timeout: 300
+
+  - type: command
+    name: "Vendor update script"
+    command: "bash -c 'hack/update-vendor.sh'"
+    timeout: 600
+
+  - type: command
+    name: "Go work vendor"
+    command: "bash -c 'go work vendor'"
+    timeout: 300
+
+  - type: command
+    name: "Install etcd"
+    command: "bash -c 'source hack/install-etcd.sh'"
+    timeout: 300
+
+  - type: command
+    name: "Codegen Update"
+    command: "bash -c 'source hack/install-etcd.sh && hack/update-codegen.sh'"
+    timeout: 600
+
+  - type: command
     name: "Make update"
-    command: "source hack/install-etcd.sh && make update"
-    timeout: 900
+    command: "bash -c 'source hack/install-etcd.sh ; make update'"
+    timeout: 600
+
+  - type: command
+    name: "Verify Codegen"
+    command: "bash -c 'source hack/install-etcd.sh && hack/verify-codegen.sh'"
+    timeout: 300
+
+  - type: command
+    name: "Verify Vendor"
+    command: "bash -c 'hack/verify-vendor.sh'"
+    timeout: 300
 
   - type: command
     name: "Build"
-    command: "make"
+    command: "bash -c 'make'"
     timeout: 600
 
   - type: test-suite
     name: "Unit Tests"
-    command: "make test"
+    command: "bash -c 'make test'"
     timeout: 1800
 
 # Agent configuration
