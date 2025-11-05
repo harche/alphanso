@@ -10,7 +10,7 @@ from typing import Literal
 from alphanso.graph.state import ConvergenceState
 
 # Type alias for possible routing decisions from decide node
-EdgeDecision = Literal["end_success", "end_failure", "retry"]
+EdgeDecision = Literal["validators_passed", "end_failure", "retry"]
 
 # Type alias for pre-actions routing
 PreActionDecision = Literal["continue_to_validate", "end_pre_action_failure"]
@@ -24,28 +24,28 @@ def should_continue(state: ConvergenceState) -> EdgeDecision:
 
     This is the core routing function for the convergence loop.
     It decides whether to:
-    - End successfully (all validators passed)
+    - Retry main script (all validators passed, environment is healthy)
     - End with failure (max attempts reached)
-    - Retry (validators failed but attempts remain)
+    - Retry with AI fix (validators failed but attempts remain)
 
     Args:
         state: Current convergence state with validation results
 
     Returns:
-        "end_success" - All validators passed, workflow complete
+        "validators_passed" - All validators passed, retry main_script immediately
         "end_failure" - Max attempts reached without success
-        "retry" - Validators failed, continue to next attempt
+        "retry" - Validators failed, need AI fix before retrying main_script
 
     Flow:
         validate → decide → should_continue() →
-            ├─ "end_success" → END (success=True)
-            ├─ "end_failure" → END (success=False)
-            └─ "retry" → increment_attempt → validate (loop)
+            ├─ "validators_passed" → increment_attempt → run_main_script (skip AI fix)
+            ├─ "end_failure" → END (max attempts reached)
+            └─ "retry" → increment_attempt → ai_fix → run_main_script
 
     Examples:
         >>> state = {"success": True, "attempt": 0, "max_attempts": 10}
         >>> should_continue(state)
-        'end_success'
+        'validators_passed'
 
         >>> state = {"success": False, "attempt": 9, "max_attempts": 10}
         >>> should_continue(state)
@@ -55,16 +55,16 @@ def should_continue(state: ConvergenceState) -> EdgeDecision:
         >>> should_continue(state)
         'retry'
     """
-    # Success - all validators passed
-    if state["success"]:
-        return "end_success"
-
     # Max attempts reached - give up
     # Note: attempt is 0-indexed, so attempt 9 means 10th attempt
     if state["attempt"] >= state["max_attempts"] - 1:
         return "end_failure"
 
-    # Validators failed but attempts remain - retry
+    # Validators passed - environment is healthy, retry main script without AI fix
+    if state["success"]:
+        return "validators_passed"
+
+    # Validators failed but attempts remain - need AI fix before retrying
     return "retry"
 
 

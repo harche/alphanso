@@ -52,14 +52,16 @@ def create_convergence_graph() -> ConvergenceGraph:
        - If succeeds → END with success
        - If fails → run validators
     3. validators: Check environment health (build, tests)
-       - If all pass → retry main_script
-       - If any fail → AI fixes → re-validate → retry main_script
+       - If all pass → increment → retry main_script (environment is healthy)
+       - If any fail → increment → AI fixes → retry main_script
     4. Loop until main_script succeeds or max_attempts reached
 
     Conditional routing:
     - check_pre_actions(): all passed → run_main_script | any failed → END
     - check_main_script(): succeeded → END | failed → validate
-    - should_continue(): all passed → run_main_script | max attempts → END | retry → ai_fix
+    - should_continue(): validators passed → increment → run_main_script |
+                        max attempts → END |
+                        validators failed → increment → ai_fix → run_main_script
 
     Returns:
         Compiled StateGraph ready for execution with AI-powered retry loop
@@ -125,21 +127,44 @@ def create_convergence_graph() -> ConvergenceGraph:
     # validate → decide
     graph.add_edge("validate", "decide")
 
-    # decide → should_continue() → {END success, END failure, retry}
-    # Based on validator results: all pass → END, max attempts → END, retry → ai_fix
+    # decide → should_continue() → {validators_passed, END failure, retry}
+    # Based on validator results:
+    #   - all pass → retry main_script (environment healthy)
+    #   - max attempts → END
+    #   - some fail → ai_fix then retry main_script
     graph.add_conditional_edges(
         "decide",
         should_continue,
         {
-            "end_success": END,
+            "validators_passed": "increment_attempt",
             "end_failure": END,
             "retry": "increment_attempt",
         },
     )
 
-    # increment_attempt → ai_fix → run_main_script
-    # AI fixes the issues, then retry the main script
-    graph.add_edge("increment_attempt", "ai_fix")
+    # increment_attempt → conditional based on whether validators passed or failed
+    # If validators passed: go directly to run_main_script (skip AI fix)
+    # If validators failed: go to ai_fix first
+    def route_after_increment(state: ConvergenceState) -> str:
+        """Route after increment_attempt based on validator results.
+
+        If validators all passed, skip AI fix and retry main script directly.
+        If validators failed, apply AI fix before retrying.
+        """
+        if state.get("success", False):
+            return "run_main_script"
+        return "ai_fix"
+
+    graph.add_conditional_edges(
+        "increment_attempt",
+        route_after_increment,
+        {
+            "run_main_script": "run_main_script",
+            "ai_fix": "ai_fix",
+        },
+    )
+
+    # ai_fix → run_main_script (after fixing issues)
     graph.add_edge("ai_fix", "run_main_script")
 
     # Compile and return

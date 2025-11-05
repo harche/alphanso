@@ -501,20 +501,20 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
 
     logger.debug(f"📍 Entering decide_node | success={success}, attempt={attempt}/{max_attempts}")
 
-    if success:
-        logger.info("✅ All validators passed")
-        logger.info("   Decision: END with success")
-        logger.debug("📤 Exiting decide_node | Routing: end_success")
-    elif attempt >= max_attempts - 1:
+    if attempt >= max_attempts - 1:
         logger.info(f"⚠️  Max attempts reached ({attempt + 1}/{max_attempts})")
         logger.info(f"   Failed validators: {', '.join(failed_validators) if failed_validators else 'none'}")
         logger.info("   Decision: END with failure")
         logger.debug("📤 Exiting decide_node | Routing: end_failure")
+    elif success:
+        logger.info("✅ All validators passed")
+        logger.info("   Decision: RETRY main script (environment is healthy)")
+        logger.debug("📤 Exiting decide_node | Routing: validators_passed -> increment_attempt -> run_main_script")
     else:
         logger.info(f"❌ Validation failed (attempt {attempt + 1}/{max_attempts})")
         logger.info(f"   Failed validators: {', '.join(failed_validators)}")
-        logger.info("   Decision: RETRY (increment attempt and re-validate)")
-        logger.debug("📤 Exiting decide_node | Routing: retry -> increment_attempt")
+        logger.info("   Decision: RETRY (increment attempt and apply AI fix)")
+        logger.debug("📤 Exiting decide_node | Routing: retry -> increment_attempt -> ai_fix")
 
     logger.info("=" * 70)
 

@@ -484,13 +484,13 @@ class TestGraphRetryLoop:
         """Test that should_continue() returns correct routing decisions."""
         from alphanso.graph.edges import should_continue
 
-        # Test success case
-        state_success: ConvergenceState = {
+        # Test validators passed case - should retry main script (not end)
+        state_validators_passed: ConvergenceState = {
             "success": True,
             "attempt": 0,
             "max_attempts": 10,
         }
-        assert should_continue(state_success) == "end_success"
+        assert should_continue(state_validators_passed) == "validators_passed"
 
         # Test max attempts reached
         state_max: ConvergenceState = {
@@ -500,7 +500,7 @@ class TestGraphRetryLoop:
         }
         assert should_continue(state_max) == "end_failure"
 
-        # Test retry case
+        # Test retry case (validators failed)
         state_retry: ConvergenceState = {
             "success": False,
             "attempt": 2,
@@ -544,3 +544,82 @@ class TestGraphRetryLoop:
         assert final_state["attempt"] == 2  # 3 attempts (0, 1, 2)
         assert len(final_state["failure_history"]) == 3
         assert "File Check" in final_state["failed_validators"]
+
+    def test_validators_pass_retries_main_script_without_ai_fix(self) -> None:
+        """Test that when validators pass, main script is retried without AI fix."""
+        graph = create_convergence_graph()
+
+        # Track how many times the main script runs
+        # First attempt: fails
+        # Second attempt (after validators pass): should succeed
+        attempt_counter = {"count": 0}
+
+        def main_script_that_succeeds_on_retry(state: ConvergenceState) -> dict:
+            """Main script that fails first time, succeeds on retry."""
+            attempt_counter["count"] += 1
+            if attempt_counter["count"] == 1:
+                # First attempt fails
+                return {
+                    "main_script_result": {
+                        "command": "test script",
+                        "success": False,
+                        "output": "Failed first time",
+                        "stderr": "Error",
+                        "exit_code": 1,
+                        "duration": 0.1,
+                    },
+                    "main_script_succeeded": False,
+                }
+            else:
+                # Second attempt succeeds
+                return {
+                    "main_script_result": {
+                        "command": "test script",
+                        "success": True,
+                        "output": "Success on retry",
+                        "stderr": "",
+                        "exit_code": 0,
+                        "duration": 0.1,
+                    },
+                    "main_script_succeeded": True,
+                }
+
+        # Patch both run_main_script_node and ai_fix_node
+        with patch("alphanso.graph.builder.run_main_script_node", main_script_that_succeeds_on_retry):
+            with patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node):
+                graph = create_convergence_graph()
+
+                initial_state = create_test_state(
+                    pre_actions_config=[
+                        {"command": "echo 'Setup'", "description": "Setup"}
+                    ],
+                    max_attempts=10,
+                    main_script_config={
+                        "command": "test script",
+                        "description": "Test script",
+                        "timeout": 10,
+                    },
+                    validators_config=[
+                        {
+                            "type": "command",
+                            "name": "Build",
+                            "command": "echo 'Build passed'",  # Always passes
+                            "timeout": 10,
+                        }
+                    ],
+                )
+
+                final_state = graph.invoke(initial_state)
+
+                # Main script should have run exactly 2 times
+                assert attempt_counter["count"] == 2
+
+                # First attempt: main script failed, validators passed
+                # Second attempt: main script succeeded
+                assert final_state["main_script_succeeded"] is True
+
+                # Should have incremented attempt once (from 0 to 1)
+                assert final_state["attempt"] == 1
+
+                # Validators passed, so no failed validators
+                assert len(final_state.get("failed_validators", [])) == 0
