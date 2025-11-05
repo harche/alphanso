@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -320,3 +321,252 @@ retry_strategy:
             assert result["working_directory"] == str(Path(config_path).parent.absolute())
         finally:
             Path(config_path).unlink()
+
+
+class TestRecursionLimit:
+    """Tests for recursion_limit calculation and passing to graph.invoke()."""
+
+    @patch("alphanso.api.create_convergence_graph")
+    def test_recursion_limit_calculated_correctly(self, mock_create_graph) -> None:
+        """Test that recursion_limit is calculated as max_attempts * 6 + 10."""
+        # Setup mock graph
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "pre_action_results": [],
+            "main_script_succeeded": True,
+            "working_directory": ".",
+        }
+        mock_create_graph.return_value = mock_graph
+
+        config_content = """
+name: "Test Recursion Limit"
+max_attempts: 50
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+pre_actions: []
+
+retry_strategy:
+  type: "hybrid"
+"""
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(config_content)
+            config_path = f.name
+
+        try:
+            config = ConvergenceConfig.from_yaml(config_path)
+            run_convergence(config=config)
+
+            # Verify graph.invoke was called with correct recursion_limit
+            assert mock_graph.invoke.called
+            call_args = mock_graph.invoke.call_args
+
+            # Second argument should be the config dict with recursion_limit
+            config_dict = call_args[0][1]
+            expected_limit = 50 * 6 + 10  # 310
+            assert config_dict["recursion_limit"] == expected_limit
+        finally:
+            Path(config_path).unlink()
+
+    @patch("alphanso.api.create_convergence_graph")
+    def test_recursion_limit_with_max_attempts_1(self, mock_create_graph) -> None:
+        """Test recursion_limit calculation with max_attempts=1 (edge case)."""
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "pre_action_results": [],
+            "main_script_succeeded": True,
+            "working_directory": ".",
+        }
+        mock_create_graph.return_value = mock_graph
+
+        config_content = """
+name: "Test Recursion Limit Edge Case"
+max_attempts: 1
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+pre_actions: []
+
+retry_strategy:
+  type: "hybrid"
+"""
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(config_content)
+            config_path = f.name
+
+        try:
+            config = ConvergenceConfig.from_yaml(config_path)
+            run_convergence(config=config)
+
+            call_args = mock_graph.invoke.call_args
+            config_dict = call_args[0][1]
+            expected_limit = 1 * 6 + 10  # 16
+            assert config_dict["recursion_limit"] == expected_limit
+        finally:
+            Path(config_path).unlink()
+
+    @patch("alphanso.api.create_convergence_graph")
+    def test_recursion_limit_with_max_attempts_100(self, mock_create_graph) -> None:
+        """Test recursion_limit calculation with max_attempts=100."""
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "pre_action_results": [],
+            "main_script_succeeded": True,
+            "working_directory": ".",
+        }
+        mock_create_graph.return_value = mock_graph
+
+        config_content = """
+name: "Test Recursion Limit Large"
+max_attempts: 100
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+pre_actions: []
+
+retry_strategy:
+  type: "hybrid"
+"""
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(config_content)
+            config_path = f.name
+
+        try:
+            config = ConvergenceConfig.from_yaml(config_path)
+            run_convergence(config=config)
+
+            call_args = mock_graph.invoke.call_args
+            config_dict = call_args[0][1]
+            expected_limit = 100 * 6 + 10  # 610
+            assert config_dict["recursion_limit"] == expected_limit
+        finally:
+            Path(config_path).unlink()
+
+    @patch("alphanso.api.create_convergence_graph")
+    def test_recursion_limit_parameter_passed_to_invoke(self, mock_create_graph) -> None:
+        """Test that recursion_limit is actually passed in the config dict to graph.invoke()."""
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "pre_action_results": [],
+            "main_script_succeeded": True,
+            "working_directory": ".",
+        }
+        mock_create_graph.return_value = mock_graph
+
+        config_content = """
+name: "Test Recursion Limit Passed"
+max_attempts: 25
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+pre_actions: []
+
+retry_strategy:
+  type: "hybrid"
+"""
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(config_content)
+            config_path = f.name
+
+        try:
+            config = ConvergenceConfig.from_yaml(config_path)
+            run_convergence(config=config)
+
+            # Verify invoke was called exactly once
+            assert mock_graph.invoke.call_count == 1
+
+            # Verify it was called with 2 arguments: state and config
+            call_args = mock_graph.invoke.call_args
+            assert len(call_args[0]) == 2
+
+            # First arg is state dict
+            state = call_args[0][0]
+            assert isinstance(state, dict)
+            assert "max_attempts" in state
+
+            # Second arg is config dict with recursion_limit
+            config_dict = call_args[0][1]
+            assert isinstance(config_dict, dict)
+            assert "recursion_limit" in config_dict
+            assert config_dict["recursion_limit"] == 25 * 6 + 10  # 160
+        finally:
+            Path(config_path).unlink()
+
+    @patch("alphanso.api.create_convergence_graph")
+    def test_recursion_limit_with_various_max_attempts(self, mock_create_graph) -> None:
+        """Test recursion_limit calculation with various max_attempts values."""
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {
+            "pre_action_results": [],
+            "main_script_succeeded": True,
+            "working_directory": ".",
+        }
+        mock_create_graph.return_value = mock_graph
+
+        test_cases = [
+            (1, 16),      # 1 * 6 + 10 = 16
+            (5, 40),      # 5 * 6 + 10 = 40
+            (10, 70),     # 10 * 6 + 10 = 70
+            (50, 310),    # 50 * 6 + 10 = 310
+            (100, 610),   # 100 * 6 + 10 = 610
+            (200, 1210),  # 200 * 6 + 10 = 1210
+        ]
+
+        for max_attempts, expected_limit in test_cases:
+            config_content = f"""
+name: "Test max_attempts={max_attempts}"
+max_attempts: {max_attempts}
+
+agent:
+  type: "claude-agent-sdk"
+  claude:
+    model: "claude-sonnet-4-5-20250929"
+
+pre_actions: []
+
+retry_strategy:
+  type: "hybrid"
+"""
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
+                f.write(config_content)
+                config_path = f.name
+
+            try:
+                config = ConvergenceConfig.from_yaml(config_path)
+                run_convergence(config=config)
+
+                call_args = mock_graph.invoke.call_args
+                config_dict = call_args[0][1]
+                assert config_dict["recursion_limit"] == expected_limit, (
+                    f"For max_attempts={max_attempts}, expected {expected_limit}, "
+                    f"got {config_dict['recursion_limit']}"
+                )
+            finally:
+                Path(config_path).unlink()

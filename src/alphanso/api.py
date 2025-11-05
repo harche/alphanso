@@ -171,8 +171,15 @@ def run_convergence(
     logger.info("Creating convergence state graph...")
     graph = create_convergence_graph()
 
+    # Calculate recursion limit based on max_attempts
+    # Each retry iteration consumes approximately 6 graph steps:
+    # run_main_script -> validate -> decide -> increment_attempt -> ai_fix -> run_main_script
+    # Adding buffer of 10 for pre_actions and final steps
+    recursion_limit = config.max_attempts * 6 + 10
+    logger.info(f"Setting recursion limit to {recursion_limit} (max_attempts={config.max_attempts})")
+
     logger.info("Executing convergence loop...")
-    final_state = graph.invoke(initial_state)
+    final_state = graph.invoke(initial_state, {"recursion_limit": recursion_limit})
 
     # Determine overall success
     # Success = main script succeeded (we trust its exit code)
