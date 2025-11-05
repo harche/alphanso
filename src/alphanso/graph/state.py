@@ -9,6 +9,28 @@ from typing import Any, TypedDict
 from alphanso.actions.pre_actions import PreActionResult
 
 
+class MainScriptResult(TypedDict):
+    """Result from executing the main script.
+
+    The main script is the primary goal - it will be retried until it succeeds.
+
+    Attributes:
+        command: The command that was executed
+        success: Whether script succeeded (exit code 0)
+        output: Captured stdout (last N chars, truncated)
+        stderr: Captured stderr (last N chars, truncated)
+        exit_code: Process exit code
+        duration: Time taken to execute in seconds
+    """
+
+    command: str
+    success: bool
+    output: str
+    stderr: str
+    exit_code: int | None
+    duration: float
+
+
 class ValidationResult(TypedDict):
     """Result from executing a validator.
 
@@ -50,6 +72,11 @@ class ConvergenceState(TypedDict, total=False):
         pre_action_results: Results from pre-action executions
         pre_actions_config: Configuration for pre-actions (commands to run)
 
+        # Main script (retried until it succeeds or max_attempts reached)
+        main_script_config: Configuration for main script (command, timeout)
+        main_script_result: Result from most recent main script execution
+        main_script_succeeded: Whether main script has succeeded
+
         # Loop control
         attempt: Current convergence loop iteration number
         max_attempts: Maximum allowed iterations
@@ -87,6 +114,11 @@ class ConvergenceState(TypedDict, total=False):
     pre_actions_failed: bool
     pre_action_results: list[PreActionResult]
     pre_actions_config: list[dict[str, str]]
+
+    # Main script (retried until it succeeds)
+    main_script_config: dict[str, Any]
+    main_script_result: MainScriptResult
+    main_script_succeeded: bool
 
     # Loop control
     attempt: int

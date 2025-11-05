@@ -2,25 +2,26 @@ name: "Openshift kubernetes rebase"
 max_attempts: 100
 working_directory: "kubernetes"
 
-# Pre-actions - Run the rebasing script
+# Pre-actions - One-time setup
 pre_actions:
-  - command: "pwd"
-    description: "Setup kubernetes fork repo"
+  - command: "../setup.sh --fork-repo=git@github.com:harche/kubernetes.git"
+    description: "Setup kubernetes fork repository"
 
-# Validators - check build and tests
+# Main script - The goal to retry until it succeeds
+main_script:
+  command: "../ocp-rebase.sh --k8s-tag=v1.35.0-alpha.2 --openshift-release=release-4.22"
+  description: "Rebase OpenShift kubernetes fork to upstream tag"
+  timeout: 600
+
+# Validators - Health checks (only run when main script fails)
 validators:
   - type: command
-    name: "Openshift rebase check"
-    command: "../ocp-rebase.sh --k8s-tag=v1.35.0-alpha.2 --openshift-release=release-4.22"
-    timeout: 600
-  
-  - type: command
     name: "Make update"
-    command: "source hack/install-etcd.sh ; make update"
+    command: "source hack/install-etcd.sh && make update"
     timeout: 900
 
   - type: command
-    name: "build"
+    name: "Build"
     command: "make"
     timeout: 600
 
@@ -28,7 +29,6 @@ validators:
     name: "Unit Tests"
     command: "make test"
     timeout: 1800
-
 
 # Agent configuration
 agent:

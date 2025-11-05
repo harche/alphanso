@@ -9,12 +9,13 @@ from typing import TypeAlias
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from alphanso.graph.edges import check_pre_actions, should_continue
+from alphanso.graph.edges import check_main_script, check_pre_actions, should_continue
 from alphanso.graph.nodes import (
     ai_fix_node,
     decide_node,
     increment_attempt_node,
     pre_actions_node,
+    run_main_script_node,
     validate_node,
 )
 from alphanso.graph.state import ConvergenceState
@@ -33,20 +34,32 @@ ConvergenceGraph: TypeAlias = CompiledStateGraph[
 def create_convergence_graph() -> ConvergenceGraph:
     """Create and compile the convergence state graph.
 
-    The graph structure with STEP 4 AI agent integration:
+    The graph structure: Script-centric workflow where main script is retried
+    until it succeeds. Validators only run when script fails to verify environment.
 
-    START → pre_actions → {validate, END} → decide → {end_success, end_failure, retry}
-                ↓                              ↑                           │
-         check_pre_actions()                   └─ ai_fix ← increment_attempt ←──────┘
+    START → pre_actions → run_main_script → check_main_script() → {END success, validate}
+                ↓                                                          ↓
+         check_pre_actions()                                         validate → decide
+                ↓                                                          ↑         ↓
+           {run_main_script, END}                           ai_fix ← increment ← retry
+                                                                         ↓
+                                                              run_main_script (loop)
 
-    Conditional routing from pre_actions node:
-    - "continue_to_validate": All pre-actions succeeded → validate
-    - "end_pre_action_failure": Any pre-action failed → END (with error)
+    Workflow:
+    1. pre_actions: One-time setup (e.g., clone repo, setup remotes)
+       - If any fail → END with error
+    2. run_main_script: Execute the main goal script (e.g., rebase)
+       - If succeeds → END with success
+       - If fails → run validators
+    3. validators: Check environment health (build, tests)
+       - If all pass → retry main_script
+       - If any fail → AI fixes → re-validate → retry main_script
+    4. Loop until main_script succeeds or max_attempts reached
 
-    Conditional routing from decide node:
-    - "end_success": All validators passed → END (success)
-    - "end_failure": Max attempts reached → END (failure)
-    - "retry": Validators failed, attempts remain → increment_attempt → ai_fix → validate
+    Conditional routing:
+    - check_pre_actions(): all passed → run_main_script | any failed → END
+    - check_main_script(): succeeded → END | failed → validate
+    - should_continue(): all passed → run_main_script | max attempts → END | retry → ai_fix
 
     Returns:
         Compiled StateGraph ready for execution with AI-powered retry loop
@@ -75,34 +88,45 @@ def create_convergence_graph() -> ConvergenceGraph:
         StateGraph(ConvergenceState)
     )
 
-    # Add nodes
+    # Add all nodes
     graph.add_node("pre_actions", pre_actions_node)
+    graph.add_node("run_main_script", run_main_script_node)
     graph.add_node("validate", validate_node)
     graph.add_node("decide", decide_node)
     graph.add_node("increment_attempt", increment_attempt_node)
-    graph.add_node("ai_fix", ai_fix_node)  # NEW: STEP 4 - AI agent integration
+    graph.add_node("ai_fix", ai_fix_node)
 
-    # Add linear edges (setup phase)
+    # START → pre_actions
     graph.add_edge(START, "pre_actions")
 
-    # Add conditional edge after pre_actions to check for failures
-    # If pre-actions fail, end immediately; otherwise continue to validation
+    # pre_actions → check_pre_actions() → {run_main_script, END}
+    # If pre-actions fail, end immediately; otherwise run main script
     graph.add_conditional_edges(
         "pre_actions",
         check_pre_actions,
         {
-            "continue_to_validate": "validate",
+            "continue_to_validate": "run_main_script",
             "end_pre_action_failure": END,
         },
     )
 
+    # run_main_script → check_main_script() → {END success, validate}
+    # If script succeeds, end with success
+    # If script fails, run validators to check environment health
+    graph.add_conditional_edges(
+        "run_main_script",
+        check_main_script,
+        {
+            "end_success": END,
+            "continue_to_validate": "validate",
+        },
+    )
+
+    # validate → decide
     graph.add_edge("validate", "decide")
 
-    # Add conditional edges (retry loop logic with AI)
-    # The should_continue() function returns one of:
-    # - "end_success": validators passed → END
-    # - "end_failure": max attempts reached → END
-    # - "retry": validators failed, try again → increment_attempt → ai_fix
+    # decide → should_continue() → {END success, END failure, retry}
+    # Based on validator results: all pass → END, max attempts → END, retry → ai_fix
     graph.add_conditional_edges(
         "decide",
         should_continue,
@@ -113,10 +137,10 @@ def create_convergence_graph() -> ConvergenceGraph:
         },
     )
 
-    # Add retry loop edges (STEP 4: AI-powered fix cycle)
-    # After incrementing attempt, invoke AI to fix, then re-validate
+    # increment_attempt → ai_fix → run_main_script
+    # AI fixes the issues, then retry the main script
     graph.add_edge("increment_attempt", "ai_fix")
-    graph.add_edge("ai_fix", "validate")
+    graph.add_edge("ai_fix", "run_main_script")
 
     # Compile and return
     return graph.compile()

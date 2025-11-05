@@ -7,6 +7,8 @@ import logging
 from typing import Any
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
+import subprocess
+import time
 from alphanso.agent.client import ConvergenceAgent
 from alphanso.agent.prompts import build_fix_prompt, build_user_message
 from alphanso.graph.state import ConvergenceState
@@ -187,6 +189,140 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         "pre_action_results": results,
         "pre_actions_failed": False,
     }
+
+
+def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
+    """Run the main script.
+
+    The main script is the primary goal of the workflow. It will be retried
+    until it succeeds or max_attempts is reached. This node executes the
+    script and captures its result.
+
+    Args:
+        state: Current convergence state
+
+    Returns:
+        Updated state with main_script_result and main_script_succeeded flag
+
+    Example:
+        >>> state = {
+        ...     "main_script_config": {
+        ...         "command": "./ocp-rebase.sh --k8s-tag=v1.35.0",
+        ...         "description": "Rebase OpenShift",
+        ...         "timeout": 600
+        ...     },
+        ...     "working_directory": "/path/to/repo"
+        ... }
+        >>> new_state = run_main_script_node(state)
+        >>> new_state["main_script_succeeded"]
+        True
+    """
+    logger.info("=" * 70)
+    logger.info("NODE: run_main_script")
+    logger.info("=" * 70)
+
+    # Get main script config
+    script_config = state.get("main_script_config", {})
+    working_dir = state.get("working_directory")
+    attempt = state.get("attempt", 0)
+
+    command = script_config.get("command", "")
+    description = script_config.get("description", command)
+    timeout = script_config.get("timeout", 600.0)
+
+    logger.info(f"Running main script (attempt {attempt + 1}/{state.get('max_attempts', 10)})...")
+    logger.info(f"Description: {description}")
+    logger.info(f"Command: {command}")
+    logger.info(f"Timeout: {timeout}s")
+    logger.info(f"Working directory: {working_dir}")
+    logger.info("")
+
+    # Run the script with timing
+    start = time.time()
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=working_dir,
+        )
+
+        duration = time.time() - start
+        success = result.returncode == 0
+
+        # Log result
+        if success:
+            logger.info(f"✅ Main script SUCCEEDED ({duration:.2f}s)")
+            if result.stdout:
+                first_line = result.stdout.strip().split("\n")[0]
+                if first_line:
+                    logger.info(f"   │ {first_line[:80]}")
+                logger.debug(f"Full stdout: {result.stdout}")
+        else:
+            logger.error(f"❌ Main script FAILED (exit code: {result.returncode}, {duration:.2f}s)")
+            if result.stderr:
+                first_error = result.stderr.strip().split("\n")[0]
+                logger.error(f"   │ {first_error[:80]}")
+            logger.info(f"Full stderr: {result.stderr}")
+
+        from alphanso.graph.state import MainScriptResult
+        script_result: MainScriptResult = {
+            "command": command,
+            "success": success,
+            "output": result.stdout[-2000:],  # Last 2000 chars
+            "stderr": result.stderr[-2000:],
+            "exit_code": result.returncode,
+            "duration": duration,
+        }
+
+        logger.debug(f"📤 Exiting run_main_script_node | success={success}")
+        return {
+            "main_script_result": script_result,
+            "main_script_succeeded": success,
+        }
+
+    except subprocess.TimeoutExpired:
+        duration = time.time() - start
+        logger.error(f"❌ Main script TIMED OUT after {timeout}s")
+
+        from alphanso.graph.state import MainScriptResult
+        script_result: MainScriptResult = {
+            "command": command,
+            "success": False,
+            "output": "",
+            "stderr": f"Command timed out after {timeout} seconds",
+            "exit_code": None,
+            "duration": duration,
+        }
+
+        logger.debug(f"📤 Exiting run_main_script_node | timeout")
+        return {
+            "main_script_result": script_result,
+            "main_script_succeeded": False,
+        }
+
+    except Exception as e:
+        duration = time.time() - start
+        logger.error(f"❌ Main script raised exception: {e}")
+        logger.debug(f"Exception details:", exc_info=True)
+
+        from alphanso.graph.state import MainScriptResult
+        script_result: MainScriptResult = {
+            "command": command,
+            "success": False,
+            "output": "",
+            "stderr": str(e),
+            "exit_code": None,
+            "duration": duration,
+        }
+
+        logger.debug(f"📤 Exiting run_main_script_node | exception")
+        return {
+            "main_script_result": script_result,
+            "main_script_succeeded": False,
+        }
 
 
 def validate_node(state: ConvergenceState) -> dict[str, Any]:

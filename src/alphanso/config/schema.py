@@ -31,6 +31,33 @@ class PreActionConfig(BaseModel):
         return self
 
 
+class MainScriptConfig(BaseModel):
+    """Configuration for the main script.
+
+    The main script is the primary goal of the workflow. It will be retried
+    until it succeeds or max_attempts is reached. Validators only run when
+    the main script fails, to verify the environment is healthy before retrying.
+
+    Attributes:
+        command: Shell command to execute
+        description: Human-readable description of what this script does
+        timeout: Maximum execution time in seconds (default: 600)
+    """
+
+    command: str = Field(..., min_length=1, description="Shell command to execute")
+    description: str = Field(default="", description="Description of the script")
+    timeout: float = Field(
+        default=600.0, ge=1.0, description="Timeout in seconds"
+    )
+
+    @model_validator(mode="after")
+    def default_description(self) -> "MainScriptConfig":
+        """Use command as default description if not provided."""
+        if not self.description:
+            self.description = self.command
+        return self
+
+
 class ClaudeAgentConfig(BaseModel):
     """Configuration for Claude Agent SDK.
 
@@ -154,6 +181,7 @@ class ConvergenceConfig(BaseModel):
         name: Name/description of this convergence configuration
         max_attempts: Maximum number of convergence loop iterations
         pre_actions: List of pre-actions to run before the loop
+        main_script: Optional main script to retry until it succeeds
         validators: List of validators to run in the convergence loop
         agent: Agent configuration
         retry_strategy: Retry strategy configuration
@@ -170,6 +198,10 @@ class ConvergenceConfig(BaseModel):
     pre_actions: list[PreActionConfig] = Field(
         default_factory=list,
         description="Pre-actions to run before convergence loop",
+    )
+    main_script: MainScriptConfig | None = Field(
+        default=None,
+        description="Main script to retry until it succeeds (optional)",
     )
     validators: list[ValidatorConfig] = Field(
         default_factory=list,

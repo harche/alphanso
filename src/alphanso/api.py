@@ -123,6 +123,16 @@ def run_convergence(
             for action in config.pre_actions
         ],
         "pre_action_results": [],
+        "main_script_config": (
+            {
+                "command": config.main_script.command,
+                "description": config.main_script.description,
+                "timeout": config.main_script.timeout,
+            }
+            if config.main_script
+            else {}
+        ),
+        "main_script_succeeded": False,
         "validators_config": [
             {
                 "type": validator.type,
@@ -153,12 +163,10 @@ def run_convergence(
     final_state = graph.invoke(initial_state)
 
     # Determine overall success
-    # Success requires:
-    # 1. All pre-actions succeeded (no pre_actions_failed flag)
-    # 2. All validators passed (success=True)
+    # Success = main script succeeded (we trust its exit code)
     pre_actions_succeeded = not final_state.get("pre_actions_failed", False)
-    validators_succeeded = final_state.get("success", False)
-    overall_success = pre_actions_succeeded and validators_succeeded
+    main_script_succeeded = final_state.get("main_script_succeeded", False)
+    overall_success = pre_actions_succeeded and main_script_succeeded
 
     # Build result
     result: ConvergenceResult = {
@@ -170,12 +178,12 @@ def run_convergence(
 
     logger.info("=" * 70)
     if overall_success:
-        logger.info(f"✅ Convergence completed successfully")
+        logger.info(f"✅ Convergence completed successfully - main script succeeded")
     elif not pre_actions_succeeded:
         failed_count = sum(1 for r in final_state["pre_action_results"] if not r["success"])
         logger.error(f"❌ Pre-actions failed ({failed_count} failure(s)) - workflow terminated")
     else:
-        logger.error(f"❌ Validation failed after {final_state.get('attempt', 0) + 1} attempt(s)")
+        logger.error(f"❌ Main script failed after {final_state.get('attempt', 0) + 1} attempt(s)")
     logger.info("=" * 70)
 
     return result
