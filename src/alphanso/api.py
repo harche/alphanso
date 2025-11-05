@@ -41,6 +41,7 @@ def run_convergence(
     system_prompt_content: str | None = None,
     env_vars: dict[str, str] | None = None,
     working_directory: str | Path | None = None,
+    config_directory: str | Path | None = None,
     log_level: int = logging.INFO,
 ) -> ConvergenceResult:
     """Run Alphanso convergence loop with the given configuration.
@@ -54,8 +55,11 @@ def run_convergence(
                               Direct API users should provide the content directly.
         env_vars: Optional environment variables for substitution in pre-actions.
                  If CURRENT_TIME is not provided, it will be added automatically.
-        working_directory: Optional working directory for command execution.
+        working_directory: Optional working directory for command execution (main script/validators).
                           Defaults to config.working_directory if not provided.
+        config_directory: Optional directory containing config file (for pre-actions).
+                         If provided, pre-actions run in this directory. If None, pre-actions
+                         run in current directory. CLI always sets this to config file's directory.
         log_level: Logging level for API users. Only used if logging not already
                   configured. Defaults to logging.INFO. Use logging.DEBUG for
                   detailed diagnostics.
@@ -110,7 +114,14 @@ def run_convergence(
         working_directory = config.working_directory
     working_dir_str = str(Path(working_directory).absolute())
 
+    # Determine config directory (for pre-actions)
+    config_dir_str: str | None = None
+    if config_directory is not None:
+        config_dir_str = str(Path(config_directory).absolute())
+
     logger.info(f"Working directory: {working_dir_str}")
+    if config_dir_str:
+        logger.info(f"Config directory: {config_dir_str}")
     logger.info(f"Max attempts: {config.max_attempts}")
     logger.info(f"Pre-actions: {len(config.pre_actions)}")
     logger.info(f"Validators: {len(config.validators)}")
@@ -151,6 +162,7 @@ def run_convergence(
         "max_attempts": config.max_attempts,
         "success": False,
         "working_directory": working_dir_str,
+        "config_directory": config_dir_str,
         "agent_config": {"model": config.agent.claude.model},
         "system_prompt_content": system_prompt_content,
     }

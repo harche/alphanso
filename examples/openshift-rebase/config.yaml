@@ -1,12 +1,15 @@
 name: "Openshift kubernetes rebase"
 max_attempts: 100
 
-# Working directory for main script and validators
-# Pre-actions run in current directory and can create this directory
+# Working directory for main script and validators (relative to config file location)
 working_directory: "kubernetes"
 
-# Pre-actions - One-time setup (runs in current directory, NOT in working_directory)
-# This allows pre-actions to create/setup the working_directory
+# Pre-actions - One-time setup
+# When using CLI: pre-actions run in the directory containing this config file
+# When using API: pre-actions run in current directory (unless config_directory specified)
+# This allows pre-actions to:
+#   - Find scripts next to config file (e.g., ./setup.sh)
+#   - Create/setup the working_directory
 pre_actions:
   - command: "./setup.sh --fork-repo=git@github.com:harche/kubernetes.git"
     description: "Setup kubernetes fork repository (creates kubernetes/ directory)"

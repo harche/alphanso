@@ -40,6 +40,7 @@ def create_test_state(**overrides: Any) -> ConvergenceState:
         "max_attempts": 10,
         "success": False,
         "working_directory": ".",
+        "validators_config": [],  # No validators = success
         "main_script_config": {
             "command": "echo 'test script'",
             "description": "Test main script",
@@ -123,18 +124,13 @@ class TestGraphBuilder:
         """Test state is properly threaded through all nodes."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'step1'", "description": "Step 1"},
                 {"command": "echo 'step2'", "description": "Step 2"},
             ],
-            "env_vars": {"TEST_VAR": "test_value"},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+            env_vars={"TEST_VAR": "test_value"},
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -149,24 +145,21 @@ class TestGraphBuilder:
         assert final_state["pre_actions_completed"] is True
         assert len(final_state["pre_action_results"]) == 2
 
-        # State should have updates from validate_node
-        assert final_state["success"] is True
-        assert final_state["validation_results"] == []
-        assert final_state["failed_validators"] == []
+        # State should have updates from main script
+        # Main script succeeded, so workflow ends without running validation
+        assert final_state["main_script_succeeded"] is True
+        # Validation never runs when main script succeeds, so success/validation fields not set
+        assert final_state.get("success") is None or final_state.get("success") is False
+        assert final_state.get("validation_results") is None
+        assert final_state.get("failed_validators") is None
 
     def test_graph_execution_performance(self) -> None:
         """Test graph execution completes quickly (< 100ms for simple case)."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [{"command": "echo 'fast'", "description": "Fast"}],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        initial_state = create_test_state(
+            pre_actions_config=[{"command": "echo 'fast'", "description": "Fast"}],
+        )
 
         start = time.time()
         graph.invoke(initial_state)
@@ -179,17 +172,11 @@ class TestGraphBuilder:
         """Test graph follows pre_actions → validate → decide → END flow."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'flow test'", "description": "Flow test"}
             ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -206,19 +193,13 @@ class TestGraphBuilder:
         """Test graph executes multiple pre-actions sequentially."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'first'", "description": "First"},
                 {"command": "echo 'second'", "description": "Second"},
                 {"command": "echo 'third'", "description": "Third"},
             ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -235,19 +216,13 @@ class TestGraphBuilder:
         """Test graph continues even when pre-action fails."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'before'", "description": "Before"},
                 {"command": "exit 1", "description": "Failing"},
                 {"command": "echo 'after'", "description": "After"},
             ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        )
 
         final_state = graph.invoke(initial_state)
 
@@ -270,17 +245,11 @@ class TestGraphStateImmutability:
         """Test graph doesn't mutate the initial state object."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
+        initial_state = create_test_state(
+            pre_actions_config=[
                 {"command": "echo 'test'", "description": "Test"}
             ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        )
 
         # Store original values
         original_completed = initial_state["pre_actions_completed"]

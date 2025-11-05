@@ -172,8 +172,68 @@ class TestPreAction:
 class TestPreActionsNode:
     """Tests for pre_actions_node function."""
 
-    def test_pre_actions_run_in_current_directory_not_working_directory(self) -> None:
-        """Test that pre-actions run in current directory, allowing them to create working_directory."""
+    def test_pre_actions_run_in_config_directory_when_provided(self) -> None:
+        """Test that pre-actions run in config_directory when provided (CLI usage)."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Change to different directory (simulating running from elsewhere)
+            original_cwd = os.getcwd()
+            try:
+                # Simulate running from a different location
+                other_dir = Path(temp_dir) / "other"
+                other_dir.mkdir()
+                os.chdir(other_dir)
+
+                # Config directory is where config.yaml would be
+                config_dir = Path(temp_dir) / "config_location"
+                config_dir.mkdir()
+
+                state: ConvergenceState = {
+                    "pre_actions_completed": False,
+                    "pre_actions_config": [
+                        # This pre-action creates the working directory
+                        {"command": "mkdir -p my_workspace", "description": "Create workspace"},
+                        # This verifies we're in config_dir, not current dir or working_directory
+                        {"command": "pwd", "description": "Show current dir"},
+                    ],
+                    "pre_action_results": [],
+                    "env_vars": {},
+                    "working_directory": str(config_dir / "my_workspace"),
+                    "config_directory": str(config_dir),  # Pre-actions run here!
+                }
+
+                updated_state = pre_actions_node(state)
+
+                # Pre-actions should succeed
+                assert updated_state["pre_actions_completed"] is True
+                assert len(updated_state["pre_action_results"]) == 2
+                assert all(r["success"] for r in updated_state["pre_action_results"])
+
+                # Verify workspace was created in config_directory, not current directory
+                workspace_in_config = config_dir / "my_workspace"
+                workspace_in_current = other_dir / "my_workspace"
+                assert workspace_in_config.exists(), "Pre-action should create working_directory in config_directory"
+                assert not workspace_in_current.exists(), "Pre-action should NOT create in current directory"
+
+                # Verify pwd showed config_directory
+                pwd_output = updated_state["pre_action_results"][1]["output"].strip()
+                # Resolve both paths to handle symlinks (macOS: /var -> /private/var, Linux: /tmp symlinks)
+                pwd_path = Path(pwd_output).resolve()
+                config_path = config_dir.resolve()
+                assert pwd_path == config_path, (
+                    f"Pre-action should run in config_directory.\n"
+                    f"Expected: {config_path}\n"
+                    f"Got:      {pwd_path}"
+                )
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_pre_actions_run_in_current_directory_when_no_config_directory(self) -> None:
+        """Test that pre-actions run in current directory when config_directory is None (API usage)."""
         import os
         import tempfile
         from pathlib import Path
@@ -189,12 +249,13 @@ class TestPreActionsNode:
                     "pre_actions_config": [
                         # This pre-action creates the working directory
                         {"command": "mkdir -p my_workspace", "description": "Create workspace"},
-                        # This verifies we're in temp_dir (current), not my_workspace
+                        # This verifies we're in current directory
                         {"command": "pwd", "description": "Show current dir"},
                     ],
                     "pre_action_results": [],
                     "env_vars": {},
-                    "working_directory": "my_workspace",  # Doesn't exist yet!
+                    "working_directory": "my_workspace",
+                    "config_directory": None,  # No config directory = use current
                 }
 
                 updated_state = pre_actions_node(state)
@@ -209,12 +270,16 @@ class TestPreActionsNode:
                 assert workspace.exists(), "Pre-action should create working_directory in current dir"
                 assert workspace.is_dir()
 
-                # Verify pwd showed current directory (temp_dir), not my_workspace
+                # Verify pwd showed current directory (temp_dir)
                 pwd_output = updated_state["pre_action_results"][1]["output"].strip()
-                # On macOS, temp dirs have symlink: /var -> /private/var, so resolve both
+                # Resolve both paths to handle symlinks (macOS: /var -> /private/var, Linux: /tmp symlinks)
                 pwd_path = Path(pwd_output).resolve()
                 temp_path = Path(temp_dir).resolve()
-                assert pwd_path == temp_path, f"Pre-action should run in current dir ({temp_path}), not working_directory. Got: {pwd_path}"
+                assert pwd_path == temp_path, (
+                    f"Pre-action should run in current dir when config_directory is None.\n"
+                    f"Expected: {temp_path}\n"
+                    f"Got:      {pwd_path}"
+                )
 
             finally:
                 os.chdir(original_cwd)

@@ -101,7 +101,8 @@ class ConvergenceState(TypedDict, total=False):
         retry_strategy: Retry strategy type (hybrid, full, targeted)
 
         # Environment
-        working_directory: Working directory for command execution
+        working_directory: Working directory for command execution (main script/validators)
+        config_directory: Directory containing config file (for pre-actions, optional)
         env_vars: Environment variables for variable substitution
 
         # Metadata
@@ -145,6 +146,7 @@ class ConvergenceState(TypedDict, total=False):
 
     # Environment
     working_directory: str
+    config_directory: str | None
     env_vars: dict[str, str]
 
     # Metadata

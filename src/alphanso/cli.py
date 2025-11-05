@@ -139,6 +139,7 @@ def run(
             system_prompt_content=system_prompt_content,
             env_vars=env_vars,
             working_directory=working_dir.absolute(),
+            config_directory=config.parent.absolute(),
         )
     except Exception as e:
         logger.error(f"Error running convergence: {e}", exc_info=True)

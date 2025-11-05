@@ -93,15 +93,18 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     """Run pre-actions before entering convergence loop.
 
     Pre-actions are setup commands that run once (e.g., git clone, mkdir, setup scripts).
-    They execute sequentially in the CURRENT DIRECTORY (not working_directory), which
+    They execute sequentially in the CONFIG DIRECTORY (not working_directory), which
     allows them to create/setup the working directory itself. If any pre-action fails,
     the workflow will terminate with an error and not proceed to validation.
 
-    IMPORTANT: Pre-actions run in current directory, NOT in working_directory.
+    IMPORTANT: Pre-actions run in config_directory, NOT in working_directory.
+    - CLI usage: config_directory is set to the directory containing config.yaml
+    - API usage: config_directory is None (pre-actions run in current directory)
+
     This design allows pre-actions to:
-    - Create the working directory (e.g., git clone)
+    - Find setup scripts next to config file (e.g., ./setup.sh)
+    - Create the working directory (e.g., git clone, mkdir)
     - Setup the environment before entering working_directory
-    - Run setup scripts from the project root
 
     Main script and validators will run in working_directory.
 
@@ -137,14 +140,18 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
 
     results: list[PreActionResult] = []
 
-    # Get environment variables and working directory from state
+    # Get environment variables and directories from state
     env_vars = state.get("env_vars", {})
     working_dir = state.get("working_directory")
+    config_dir = state.get("config_directory")
 
-    # IMPORTANT: Pre-actions run in CURRENT DIRECTORY, not working_directory
+    # IMPORTANT: Pre-actions run in CONFIG DIRECTORY (not working_directory)
+    # - If config_directory is set (CLI usage): pre-actions run where config file is
+    # - If config_directory is None (API usage): pre-actions run in current directory
     # This allows pre-actions to create/setup the working directory itself
     # (e.g., setup.sh can clone into kubernetes/, mkdir, etc.)
-    logger.info(f"Pre-actions run in: current directory (where config file is)")
+    pre_actions_dir = config_dir or "current directory"
+    logger.info(f"Pre-actions run in: {pre_actions_dir}")
     logger.info(f"Main script/validators will run in: {working_dir or 'current directory'}")
     logger.info(f"Environment variables: {list(env_vars.keys())}")
 
@@ -163,9 +170,9 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
         # Show what we're running
         logger.info(f"[{idx}/{len(state.get('pre_actions_config', []))}] {pre_action.description}")
 
-        # Pre-actions run in current directory (None = current directory)
+        # Pre-actions run in config_directory (or current directory if None)
         # NOT in working_directory, so they can create/setup that directory
-        result = pre_action.run(env_vars, working_dir=None)
+        result = pre_action.run(env_vars, working_dir=config_dir)
         results.append(result)
 
         # Show result
