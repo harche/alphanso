@@ -240,17 +240,28 @@ export REBASER_CONTAINER_IMAGE="$container_image"
 export REBASER_CONTAINER_RUNTIME="$container_runtime"
 export REBASER_SELINUX_FLAG="$selinux_flag"
 
-# Attempt merge with upstream
-echo ""
-echo "======================================================================"
-echo "Merging upstream Kubernetes $k8s_tag"
-echo "======================================================================"
+# Check if we're in the middle of a merge (from previous attempt with AI fixes)
+if [ -f .git/MERGE_HEAD ]; then
+  echo ""
+  echo "======================================================================"
+  echo "Completing previous merge attempt with AI fixes..."
+  echo "======================================================================"
+  git add -A
+  git commit --no-edit || git commit -m "UPSTREAM: <drop>: resolve conflicts with AI assistance"
+  merge_exit_code=0
+else
+  # Start new merge
+  echo ""
+  echo "======================================================================"
+  echo "Merging upstream Kubernetes $k8s_tag"
+  echo "======================================================================"
 
-# Capture exit code without triggering set -e
-set +e
-git merge "$k8s_tag"
-merge_exit_code=$?
-set -e
+  # Capture exit code without triggering set -e
+  set +e
+  git merge "$k8s_tag"
+  merge_exit_code=$?
+  set -e
+fi
 
 if [ $merge_exit_code -eq 0 ]; then
   echo "✓ No conflicts detected. Automatic merge succeeded"
