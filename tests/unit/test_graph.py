@@ -27,6 +27,29 @@ def mock_ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
+def create_test_state(**overrides: Any) -> ConvergenceState:
+    """Create a test ConvergenceState with all required fields.
+
+    This helper ensures all tests include the new main_script_config field.
+    """
+    base_state: ConvergenceState = {
+        "pre_actions_completed": False,
+        "pre_actions_config": [],
+        "env_vars": {},
+        "attempt": 0,
+        "max_attempts": 10,
+        "success": False,
+        "working_directory": ".",
+        "main_script_config": {
+            "command": "echo 'test script'",
+            "description": "Test main script",
+            "timeout": 600,
+        },
+    }
+    base_state.update(overrides)
+    return base_state
+
+
 class TestGraphNodes:
     """Tests for individual graph nodes."""
 
@@ -80,27 +103,20 @@ class TestGraphBuilder:
         # Graph should compile without errors
         assert graph is not None
 
+    @patch("alphanso.graph.nodes.ai_fix_node", mock_ai_fix_node)
     def test_graph_executes_end_to_end(self) -> None:
-        """Test graph executes from START to END."""
+        """Test graph executes from START to END with main script success."""
         graph = create_convergence_graph()
 
-        initial_state: ConvergenceState = {
-            "pre_actions_completed": False,
-            "pre_actions_config": [
-                {"command": "echo 'hello'", "description": "Test"}
-            ],
-            "env_vars": {},
-            "attempt": 0,
-            "max_attempts": 10,
-            "success": False,
-            "working_directory": ".",
-        }
+        initial_state = create_test_state(
+            pre_actions_config=[{"command": "echo 'hello'", "description": "Test"}],
+        )
 
         final_state = graph.invoke(initial_state)
 
-        # Should reach END with success
+        # Should reach END with script success
         assert final_state["pre_actions_completed"] is True
-        assert final_state["success"] is True
+        assert final_state["main_script_succeeded"] is True
         assert len(final_state["pre_action_results"]) == 1
 
     def test_graph_threads_state_through_nodes(self) -> None:
