@@ -412,7 +412,8 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        # Calculate recursion limit: max_attempts * 6 + 10
+        final_state = graph.invoke(initial_state, {"recursion_limit": 5 * 6 + 10})
 
         # After 5 attempts (0-4), should be at attempt 4
         assert final_state["attempt"] == 4
@@ -623,3 +624,82 @@ class TestGraphRetryLoop:
 
                 # Validators passed, so no failed validators
                 assert len(final_state.get("failed_validators", [])) == 0
+
+    @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
+    def test_validators_fail_goes_to_ai_fix_not_main_script(self) -> None:
+        """Test that when validators fail, we go to AI fix (not retry main script)."""
+        graph = create_convergence_graph()
+
+        # Track which nodes get called
+        call_sequence = []
+
+        def tracking_ai_fix_node(state: ConvergenceState) -> dict:
+            """Track when AI fix is called."""
+            call_sequence.append("ai_fix")
+            return mock_ai_fix_node(state)
+
+        def tracking_main_script_node(state: ConvergenceState) -> dict:
+            """Track when main script is called."""
+            call_sequence.append("main_script")
+            # Always fail so validators run
+            return {
+                "main_script_result": {
+                    "command": "test script",
+                    "success": False,
+                    "output": "Main script failed",
+                    "stderr": "Error",
+                    "exit_code": 1,
+                    "duration": 0.1,
+                },
+                "main_script_succeeded": False,
+            }
+
+        with patch("alphanso.graph.builder.ai_fix_node", tracking_ai_fix_node):
+            with patch("alphanso.graph.builder.run_main_script_node", tracking_main_script_node):
+                graph = create_convergence_graph()
+
+                initial_state = create_test_state(
+                    pre_actions_config=[],
+                    max_attempts=3,
+                    main_script_config={
+                        "command": "test script",
+                        "description": "Test script",
+                        "timeout": 10,
+                    },
+                    validators_config=[
+                        {
+                            "type": "command",
+                            "name": "Build",
+                            "command": "false",  # Always fails
+                            "timeout": 10,
+                        }
+                    ],
+                )
+
+                final_state = graph.invoke(initial_state)
+
+                # Verify the call sequence shows AI fix is called after validator failures
+                # Expected sequence:
+                # 1. main_script (fails)
+                # 2. ai_fix (first attempt to fix)
+                # 3. validators run and fail
+                # 4. ai_fix (second attempt to fix - refinement)
+                # 5. validators run and fail
+                # 6. ai_fix (third attempt to fix - refinement)
+                # 7. max attempts reached → END
+
+                # Should have 3 AI fix calls (one per attempt)
+                ai_fix_count = call_sequence.count("ai_fix")
+                assert ai_fix_count == 3, f"Expected 3 AI fix calls, got {ai_fix_count}. Sequence: {call_sequence}"
+
+                # Should have exactly 1 main script call (initial failure that triggers the loop)
+                main_script_count = call_sequence.count("main_script")
+                assert main_script_count == 1, f"Expected 1 main script call, got {main_script_count}. Sequence: {call_sequence}"
+
+                # Verify first call is main_script, then all subsequent calls are ai_fix
+                assert call_sequence[0] == "main_script"
+                assert all(call == "ai_fix" for call in call_sequence[1:]), f"After main_script fails, should only call ai_fix. Sequence: {call_sequence}"
+
+                # Should end with failure after max attempts
+                assert final_state["success"] is False
+                assert final_state["attempt"] == 2  # 3 attempts (0, 1, 2)

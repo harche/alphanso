@@ -16,7 +16,7 @@ EdgeDecision = Literal["validators_passed", "end_failure", "retry"]
 PreActionDecision = Literal["continue_to_validate", "end_pre_action_failure"]
 
 # Type alias for main script routing
-MainScriptDecision = Literal["end_success", "continue_to_validate"]
+MainScriptDecision = Literal["end_success", "continue_to_ai_fix"]
 
 
 def should_continue(state: ConvergenceState) -> EdgeDecision:
@@ -106,19 +106,19 @@ def check_main_script(state: ConvergenceState) -> MainScriptDecision:
 
     This routing function checks if the main script succeeded.
     If the script succeeded, we trust its exit code and end with success.
-    If the script failed, we proceed to validators to check environment health.
+    If the script failed, we go directly to AI for analysis and fixing.
 
     Args:
         state: Current convergence state with main_script_succeeded flag
 
     Returns:
         "end_success" - Main script succeeded, workflow complete
-        "continue_to_validate" - Main script failed, run validators to enable fixes
+        "continue_to_ai_fix" - Main script failed, go to AI for analysis and fix
 
     Flow:
         run_main_script → check_main_script() →
             ├─ "end_success" → END (script succeeded)
-            └─ "continue_to_validate" → validate (script failed, check environment)
+            └─ "continue_to_ai_fix" → increment_attempt → ai_fix (script failed, get AI fix)
 
     Examples:
         >>> state = {"main_script_succeeded": True}
@@ -127,8 +127,8 @@ def check_main_script(state: ConvergenceState) -> MainScriptDecision:
 
         >>> state = {"main_script_succeeded": False}
         >>> check_main_script(state)
-        'continue_to_validate'
+        'continue_to_ai_fix'
     """
     if state.get("main_script_succeeded", False):
         return "end_success"
-    return "continue_to_validate"
+    return "continue_to_ai_fix"

@@ -35,33 +35,39 @@ def create_convergence_graph() -> ConvergenceGraph:
     """Create and compile the convergence state graph.
 
     The graph structure: Script-centric workflow where main script is retried
-    until it succeeds. Validators only run when script fails to verify environment.
+    until it succeeds. When script fails, AI sees the error immediately and attempts
+    a fix, then validators verify the fix worked.
 
-    START → pre_actions → run_main_script → check_main_script() → {END success, validate}
+    START → pre_actions → run_main_script → check_main_script() → {END success, increment}
                 ↓                                                          ↓
-         check_pre_actions()                                         validate → decide
-                ↓                                                          ↑         ↓
-           {run_main_script, END}                           ai_fix ← increment ← retry
-                                                                         ↓
-                                                              run_main_script (loop)
+         check_pre_actions()                                          ai_fix
+                ↓                                                          ↓
+           {run_main_script, END}                                     validate → decide
+                                                                          ↑         ↓
+                                                              run_main_script ← {validators_passed, retry}
+                                                                                     ↓
+                                                                                END (max attempts)
 
     Workflow:
     1. pre_actions: One-time setup (e.g., clone repo, setup remotes)
        - If any fail → END with error
     2. run_main_script: Execute the main goal script (e.g., rebase)
        - If succeeds → END with success
-       - If fails → run validators
-    3. validators: Check environment health (build, tests)
-       - If all pass → increment → retry main_script (environment is healthy)
-       - If any fail → increment → AI fixes → retry main_script
-    4. Loop until main_script succeeds or max_attempts reached
+       - If fails → increment attempt → AI sees error and attempts fix
+    3. ai_fix: AI analyzes main script error and applies fix
+       - AI gets main script error output (stderr, stdout, exit code)
+       - AI investigates and fixes using SDK tools
+    4. validators: Verify AI's fix worked (build, tests, etc.)
+       - If all pass → increment → retry main_script (fix was successful)
+       - If any fail → increment → AI refines fix (gets validator failures)
+    5. Loop until main_script succeeds or max_attempts reached
 
     Conditional routing:
     - check_pre_actions(): all passed → run_main_script | any failed → END
-    - check_main_script(): succeeded → END | failed → validate
+    - check_main_script(): succeeded → END | failed → increment → ai_fix
     - should_continue(): validators passed → increment → run_main_script |
                         max attempts → END |
-                        validators failed → increment → ai_fix → run_main_script
+                        validators failed → increment → ai_fix (refine)
 
     Returns:
         Compiled StateGraph ready for execution with AI-powered retry loop
@@ -78,10 +84,15 @@ def create_convergence_graph() -> ConvergenceGraph:
         ...     "max_attempts": 10,
         ...     "success": False,
         ...     "working_directory": ".",
+        ...     "main_script_config": {
+        ...         "command": "echo 'test'",
+        ...         "description": "Test script",
+        ...         "timeout": 600
+        ...     },
         ...     "agent_config": {"model": "claude-sonnet-4-5@20250929"}
         ... }
         >>> final_state = graph.invoke(initial_state)
-        >>> final_state["success"]
+        >>> final_state["main_script_succeeded"]
         True
     """
     # Create state graph with ConvergenceState schema
@@ -112,15 +123,15 @@ def create_convergence_graph() -> ConvergenceGraph:
         },
     )
 
-    # run_main_script → check_main_script() → {END success, validate}
+    # run_main_script → check_main_script() → {END success, ai_fix}
     # If script succeeds, end with success
-    # If script fails, run validators to check environment health
+    # If script fails, go to AI for analysis and fix
     graph.add_conditional_edges(
         "run_main_script",
         check_main_script,
         {
             "end_success": END,
-            "continue_to_validate": "validate",
+            "continue_to_ai_fix": "ai_fix",
         },
     )
 
@@ -142,9 +153,9 @@ def create_convergence_graph() -> ConvergenceGraph:
         },
     )
 
-    # increment_attempt → conditional based on whether validators passed or failed
-    # If validators passed: go directly to run_main_script (skip AI fix)
-    # If validators failed: go to ai_fix first
+    # increment_attempt → conditional based on validator results
+    # If validators passed: go directly to run_main_script (environment is healthy)
+    # If validators failed: go to ai_fix first (need to fix validation failures)
     def route_after_increment(state: ConvergenceState) -> str:
         """Route after increment_attempt based on validator results.
 
@@ -164,8 +175,8 @@ def create_convergence_graph() -> ConvergenceGraph:
         },
     )
 
-    # ai_fix → run_main_script (after fixing issues)
-    graph.add_edge("ai_fix", "run_main_script")
+    # ai_fix → validate (AI fixes first, then validators verify the fix)
+    graph.add_edge("ai_fix", "validate")
 
     # Compile and return
     return graph.compile()

@@ -209,13 +209,13 @@ class TestBuildUserMessage:
 
         message = build_user_message(state)
 
-        # Verify message structure
-        assert "The framework ran validators and the following failed:" in message
-        assert "## Validator: Build" in message
+        # Verify message structure - validators shown as "failed after your previous fix"
+        assert "## Validators Failed After Your Previous Fix" in message
+        assert "### Validator: Build" in message
         assert "Exit Code: 2" in message
         assert "make: *** [all] Error 2" in message
         assert "undefined reference to `foo`" in message
-        assert "Please investigate using SDK tools" in message
+        assert "Please refine your approach" in message
 
     def test_build_user_message_skips_successful_validators(self) -> None:
         """Test build_user_message only includes failed validators."""
@@ -252,12 +252,27 @@ class TestBuildUserMessage:
         assert "FAIL pkg/foo" in message
 
     def test_build_user_message_handles_empty_validation_results(self) -> None:
-        """Test build_user_message handles empty validation results."""
+        """Test build_user_message handles empty validation results (only shows main script error)."""
         state: ConvergenceState = {
-            "validation_results": []
+            "validation_results": [],
+            "main_script_result": {
+                "success": False,
+                "command": "make rebase",
+                "exit_code": 1,
+                "stderr": "merge conflict in file.go",
+                "output": "",
+                "duration": 1.0,
+            },
+            "main_script_config": {
+                "description": "Rebase OpenShift fork",
+                "command": "make rebase",
+                "timeout": 600,
+            },
         }
 
         message = build_user_message(state)
 
-        assert "The framework ran validators" in message
-        assert "Please investigate using SDK tools" in message
+        # Should show main script error
+        assert "## Main Script Failed" in message
+        assert "merge conflict in file.go" in message
+        assert "Please investigate the main script failure" in message

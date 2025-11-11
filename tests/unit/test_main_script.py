@@ -208,19 +208,19 @@ class TestCheckMainScriptEdge:
         assert result == "end_success"
 
     def test_script_failed_routes_to_validate(self) -> None:
-        """Test that failed script routes to validate."""
+        """Test that failed script routes to ai_fix."""
         state: ConvergenceState = {
             "main_script_succeeded": False,
         }
 
         result = check_main_script(state)
 
-        assert result == "continue_to_validate"
+        assert result == "continue_to_ai_fix"
 
     def test_missing_flag_defaults_to_failed(self) -> None:
-        """Test that missing succeeded flag defaults to False (validate)."""
+        """Test that missing succeeded flag defaults to False (ai_fix)."""
         state: ConvergenceState = {}
 
         result = check_main_script(state)
 
-        assert result == "continue_to_validate"
+        assert result == "continue_to_ai_fix"

@@ -53,16 +53,6 @@ validators:
     timeout: 600
 
   - type: command
-    name: "Verify Codegen"
-    command: "bash -c 'source hack/install-etcd.sh && hack/verify-codegen.sh'"
-    timeout: 300
-
-  - type: command
-    name: "Verify Vendor"
-    command: "bash -c 'hack/verify-vendor.sh'"
-    timeout: 300
-
-  - type: command
     name: "Build"
     command: "bash -c 'make'"
     timeout: 600

@@ -63,17 +63,26 @@ Previous attempts:
 def build_user_message(state: ConvergenceState) -> str:
     """Build user message with current failure details.
 
+    Shows only the relevant failures based on context:
+    - First AI call (no validator results): Shows main script error
+    - Refinement calls (validators failed): Shows only validator errors
+
     Args:
         state: Current convergence state
 
     Returns:
-        User message with formatted validation failure details
+        User message with formatted failure details
     """
-    message = "The framework ran validators and the following failed:\n\n"
+    validation_results = state.get("validation_results", [])
+    failed_validators = [r for r in validation_results if not r.get("success", True)]
 
-    for result in state.get("validation_results", []):
-        if not result.get("success", True):
-            message += f"## Validator: {result.get('validator_name', 'Unknown')}\n"
+    # If validators failed, show ONLY validator errors (refinement mode)
+    # Don't show main script error - AI already tried to fix that
+    if failed_validators:
+        message = "## Validators Failed After Your Previous Fix\n\n"
+
+        for result in failed_validators:
+            message += f"### Validator: {result.get('validator_name', 'Unknown')}\n"
             message += f"Exit Code: {result.get('exit_code', 'N/A')}\n"
 
             # Include the command that was executed
@@ -93,6 +102,34 @@ def build_user_message(state: ConvergenceState) -> str:
             if stderr:
                 message += f"Stderr:\n```\n{stderr}\n```\n\n"
 
-    message += "Please investigate using SDK tools and fix the issues."
+        message += "Please refine your approach to fix these validation failures."
+    else:
+        # First AI call: show only main script error
+        main_script_result = state.get("main_script_result")
+        if main_script_result and not main_script_result.get("success", True):
+            message = "## Main Script Failed\n\n"
+            message += f"**Description:** {state.get('main_script_config', {}).get('description', 'Main script')}\n"
+
+            command = main_script_result.get('command', '')
+            if command:
+                message += f"**Command:** `{command}`\n"
+
+            exit_code = main_script_result.get('exit_code', 'N/A')
+            message += f"**Exit Code:** {exit_code}\n\n"
+
+            # Include stderr (usually has the important errors like merge conflicts)
+            stderr = main_script_result.get("stderr", "")
+            if stderr:
+                message += f"**Error Output:**\n```\n{stderr}\n```\n\n"
+
+            # Include stdout if available
+            output = main_script_result.get('output', '')
+            if output:
+                message += f"**Standard Output:**\n```\n{output}\n```\n\n"
+
+            message += "Please investigate the main script failure and apply fixes."
+        else:
+            # Fallback if no failures found
+            message = "Please investigate and fix the issues."
 
     return message
