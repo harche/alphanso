@@ -1,8 +1,35 @@
+<div align="center">
+  <img src="docs/images/alphanso-logo.png" alt="Alphanso Logo" width="200"/>
+</div>
+
 # Alphanso
 
-> AI-assisted iterative problem resolution framework
+> AI-powered convergence framework for automated problem resolution
 
-Alphanso is a Python framework for automating complex, iterative problem-solving workflows with AI assistance. It enables automated tasks like dependency upgrades, code refactoring, and Kubernetes rebasing through intelligent workflow orchestration.
+Alphanso is a Python framework that uses AI convergence loops to automate complex, iterative problem-solving workflows. It enables automated tasks like dependency upgrades, code refactoring, and Kubernetes rebasing through intelligent workflow orchestration.
+
+## 🔄 Workflow
+
+```
+START
+  ↓
+pre_actions (one-time setup)
+  ├─ SUCCESS → run_main_script
+  └─ FAILED → END ❌
+
+run_main_script
+  ├─ SUCCESS → END ✅
+  └─ FAILED → ai_fix
+               ↓
+            validate
+               ↓
+            decide
+               ├─ validators PASSED → run_main_script (retry)
+               ├─ validators FAILED → increment_attempt → ai_fix (loop)
+               └─ max attempts → END ❌
+```
+
+The workflow starts with one-time setup (pre-actions like cloning repos, fetching remotes). If setup succeeds, the main script executes. When the main script fails, AI investigates and fixes the issue. Validators then verify the environment is healthy. If validators pass, the main script is retried. If validators fail, AI fixes them and the cycle continues until the main script succeeds or max attempts is reached.
 
 ## 🎯 Use Cases
 
