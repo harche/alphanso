@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="docs/images/alphanso-logo.png" alt="Alphanso Logo" width="200"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/alphanso-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/alphanso-logo-light.png">
+    <img src="docs/images/alphanso-logo.png" alt="Alphanso Logo" width="200"/>
+  </picture>
 </div>
 
 # Alphanso
