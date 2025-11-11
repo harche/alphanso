@@ -94,14 +94,16 @@ Apply security patches while automatically fixing resulting regressions.
 ### Using uv (recommended)
 
 ```bash
-uv add alphanso
+uv add git+https://github.com/harche/alphanso.git
 ```
 
 ### Using pip
 
 ```bash
-pip install alphanso
+pip install git+https://github.com/harche/alphanso.git
 ```
+
+> **Note**: Alphanso is not yet published to PyPI. Install directly from GitHub using the commands above.
 
 ## 🎯 Quick Start
 
