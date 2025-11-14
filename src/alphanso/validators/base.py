@@ -36,11 +36,26 @@ class Validator(ABC):
         self.timeout = timeout
 
     @abstractmethod
-    def validate(self) -> ValidationResult:
-        """Run validation and return result.
+    async def avalidate(self) -> ValidationResult:
+        """Run validation asynchronously and return result.
 
-        This method must be implemented by subclasses to perform the actual
-        validation logic (running commands, checking files, etc.).
+        This is the primary method that must be implemented by subclasses to perform
+        the actual validation logic using async I/O (async subprocess calls, etc.).
+
+        Returns:
+            ValidationResult with success status and details
+
+        Raises:
+            Any exception will be caught by arun() and converted to a failed result
+        """
+        pass
+
+    def validate(self) -> ValidationResult:
+        """Run validation synchronously by calling async version.
+
+        This is a convenience wrapper that calls avalidate() using asyncio.run().
+        Subclasses should implement avalidate() only - this sync version is
+        automatically provided.
 
         Returns:
             ValidationResult with success status and details
@@ -48,7 +63,10 @@ class Validator(ABC):
         Raises:
             Any exception will be caught by run() and converted to a failed result
         """
-        pass
+        import asyncio
+
+        # Run the async avalidate() method in sync context
+        return asyncio.run(self.avalidate())
 
     def run(self) -> ValidationResult:
         """Run validator with timing and error handling.
@@ -69,6 +87,38 @@ class Validator(ABC):
         except Exception as e:
             # Convert exception to failed validation result
             logger.debug(f"Validator '{self.name}' raised exception: {e}", exc_info=True)
+            return ValidationResult(
+                validator_name=self.name,
+                success=False,
+                output="",
+                stderr=str(e),
+                exit_code=None,
+                duration=time.time() - start,
+                timestamp=start,
+                metadata={},
+            )
+
+    async def arun(self) -> ValidationResult:
+        """Run validator asynchronously with timing and error handling.
+
+        Async version of run() for use in async applications (e.g., Kubernetes operators).
+        This wraps the subclass's avalidate() method with timing and exception handling.
+
+        Returns:
+            ValidationResult with timing information and error handling
+        """
+        start = time.time()
+        try:
+            result = await self.avalidate()
+            # Add timing information
+            result["duration"] = time.time() - start
+            result["timestamp"] = start
+            return result
+        except Exception as e:
+            # Convert exception to failed validation result
+            logger.debug(
+                f"Validator '{self.name}' raised exception (async): {e}", exc_info=True
+            )
             return ValidationResult(
                 validator_name=self.name,
                 success=False,

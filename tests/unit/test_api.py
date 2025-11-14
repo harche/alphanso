@@ -2,7 +2,7 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import yaml
@@ -331,11 +331,11 @@ class TestRecursionLimit:
         """Test that recursion_limit is calculated as max_attempts * 6 + 10."""
         # Setup mock graph
         mock_graph = MagicMock()
-        mock_graph.invoke.return_value = {
+        mock_graph.ainvoke = AsyncMock(return_value={
             "pre_action_results": [],
             "main_script_succeeded": True,
             "working_directory": ".",
-        }
+        })
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -363,9 +363,9 @@ retry_strategy:
             config = ConvergenceConfig.from_yaml(config_path)
             run_convergence(config=config)
 
-            # Verify graph.invoke was called with correct recursion_limit
-            assert mock_graph.invoke.called
-            call_args = mock_graph.invoke.call_args
+            # Verify graph.ainvoke was called with correct recursion_limit
+            assert mock_graph.ainvoke.called
+            call_args = mock_graph.ainvoke.call_args
 
             # Second argument should be the config dict with recursion_limit
             config_dict = call_args[0][1]
@@ -378,11 +378,11 @@ retry_strategy:
     def test_recursion_limit_with_max_attempts_1(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with max_attempts=1 (edge case)."""
         mock_graph = MagicMock()
-        mock_graph.invoke.return_value = {
+        mock_graph.ainvoke = AsyncMock(return_value={
             "pre_action_results": [],
             "main_script_succeeded": True,
             "working_directory": ".",
-        }
+        })
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -410,7 +410,7 @@ retry_strategy:
             config = ConvergenceConfig.from_yaml(config_path)
             run_convergence(config=config)
 
-            call_args = mock_graph.invoke.call_args
+            call_args = mock_graph.ainvoke.call_args
             config_dict = call_args[0][1]
             expected_limit = 1 * 6 + 10  # 16
             assert config_dict["recursion_limit"] == expected_limit
@@ -421,11 +421,11 @@ retry_strategy:
     def test_recursion_limit_with_max_attempts_100(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with max_attempts=100."""
         mock_graph = MagicMock()
-        mock_graph.invoke.return_value = {
+        mock_graph.ainvoke = AsyncMock(return_value={
             "pre_action_results": [],
             "main_script_succeeded": True,
             "working_directory": ".",
-        }
+        })
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -453,7 +453,7 @@ retry_strategy:
             config = ConvergenceConfig.from_yaml(config_path)
             run_convergence(config=config)
 
-            call_args = mock_graph.invoke.call_args
+            call_args = mock_graph.ainvoke.call_args
             config_dict = call_args[0][1]
             expected_limit = 100 * 6 + 10  # 610
             assert config_dict["recursion_limit"] == expected_limit
@@ -462,13 +462,13 @@ retry_strategy:
 
     @patch("alphanso.api.create_convergence_graph")
     def test_recursion_limit_parameter_passed_to_invoke(self, mock_create_graph) -> None:
-        """Test that recursion_limit is actually passed in the config dict to graph.invoke()."""
+        """Test that recursion_limit is actually passed in the config dict to graph.ainvoke()."""
         mock_graph = MagicMock()
-        mock_graph.invoke.return_value = {
+        mock_graph.ainvoke = AsyncMock(return_value={
             "pre_action_results": [],
             "main_script_succeeded": True,
             "working_directory": ".",
-        }
+        })
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -497,10 +497,10 @@ retry_strategy:
             run_convergence(config=config)
 
             # Verify invoke was called exactly once
-            assert mock_graph.invoke.call_count == 1
+            assert mock_graph.ainvoke.call_count == 1
 
             # Verify it was called with 2 arguments: state and config
-            call_args = mock_graph.invoke.call_args
+            call_args = mock_graph.ainvoke.call_args
             assert len(call_args[0]) == 2
 
             # First arg is state dict
@@ -520,11 +520,11 @@ retry_strategy:
     def test_recursion_limit_with_various_max_attempts(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with various max_attempts values."""
         mock_graph = MagicMock()
-        mock_graph.invoke.return_value = {
+        mock_graph.ainvoke = AsyncMock(return_value={
             "pre_action_results": [],
             "main_script_succeeded": True,
             "working_directory": ".",
-        }
+        })
         mock_create_graph.return_value = mock_graph
 
         test_cases = [
@@ -562,7 +562,7 @@ retry_strategy:
                 config = ConvergenceConfig.from_yaml(config_path)
                 run_convergence(config=config)
 
-                call_args = mock_graph.invoke.call_args
+                call_args = mock_graph.ainvoke.call_args
                 config_dict = call_args[0][1]
                 assert config_dict["recursion_limit"] == expected_limit, (
                     f"For max_attempts={max_attempts}, expected {expected_limit}, "

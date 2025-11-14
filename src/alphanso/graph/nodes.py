@@ -3,15 +3,17 @@
 This module contains the node functions that make up the convergence state graph.
 """
 
+import asyncio
 import logging
+import subprocess
+import time
 from typing import Any
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
-import subprocess
-import time
 from alphanso.agent.client import ConvergenceAgent
 from alphanso.agent.prompts import build_fix_prompt, build_user_message
 from alphanso.graph.state import ConvergenceState
+from alphanso.utils.subprocess import run_command_async
 from alphanso.validators import (
     CommandValidator,
     GitConflictValidator,
@@ -89,7 +91,7 @@ def create_validators(
     return validators
 
 
-def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
+async def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     """Run pre-actions before entering convergence loop.
 
     Pre-actions are setup commands that run once (e.g., git clone, mkdir, setup scripts).
@@ -172,7 +174,7 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
 
         # Pre-actions run in config_directory (or current directory if None)
         # NOT in working_directory, so they can create/setup that directory
-        result = pre_action.run(env_vars, working_dir=config_dir)
+        result = await pre_action.arun(env_vars, working_dir=config_dir)
         results.append(result)
 
         # Show result
@@ -213,8 +215,8 @@ def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
-def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
-    """Run the main script.
+async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
+    """Run the main script asynchronously.
 
     The main script is the primary goal of the workflow. It will be retried
     until it succeeds or max_attempts is reached. This node executes the
@@ -235,12 +237,12 @@ def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
         ...     },
         ...     "working_directory": "/path/to/repo"
         ... }
-        >>> new_state = run_main_script_node(state)
+        >>> new_state = await run_main_script_node(state)
         >>> new_state["main_script_succeeded"]
         True
     """
     logger.info("=" * 70)
-    logger.info("NODE: run_main_script")
+    logger.info("NODE: run_main_script (async)")
     logger.info("=" * 70)
 
     # Get main script config
@@ -259,96 +261,46 @@ def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     logger.info(f"Working directory: {working_dir}")
     logger.info("")
 
-    # Run the script with timing
+    # Run the script with timing using async subprocess
     start = time.time()
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=working_dir,
-        )
+    result = await run_command_async(command, timeout=timeout, working_dir=working_dir)
+    duration = result["duration"]
+    success = result["success"]
 
-        duration = time.time() - start
-        success = result.returncode == 0
+    # Log result
+    if success:
+        logger.info(f"✅ Main script SUCCEEDED ({duration:.2f}s)")
+        if result["output"]:
+            first_line = result["output"].strip().split("\n")[0]
+            if first_line:
+                logger.info(f"   │ {first_line[:80]}")
+            logger.debug(f"Full stdout: {result['output']}")
+    else:
+        logger.error(f"❌ Main script FAILED (exit code: {result['exit_code']}, {duration:.2f}s)")
+        if result["stderr"]:
+            first_error = result["stderr"].strip().split("\n")[0]
+            logger.error(f"   │ {first_error[:80]}")
+        logger.info(f"Full stderr: {result['stderr']}")
 
-        # Log result
-        if success:
-            logger.info(f"✅ Main script SUCCEEDED ({duration:.2f}s)")
-            if result.stdout:
-                first_line = result.stdout.strip().split("\n")[0]
-                if first_line:
-                    logger.info(f"   │ {first_line[:80]}")
-                logger.debug(f"Full stdout: {result.stdout}")
-        else:
-            logger.error(f"❌ Main script FAILED (exit code: {result.returncode}, {duration:.2f}s)")
-            if result.stderr:
-                first_error = result.stderr.strip().split("\n")[0]
-                logger.error(f"   │ {first_error[:80]}")
-            logger.info(f"Full stderr: {result.stderr}")
+    from alphanso.graph.state import MainScriptResult
+    script_result: MainScriptResult = {
+        "command": command,
+        "success": success,
+        "output": result["output"][-2000:],  # Last 2000 chars
+        "stderr": result["stderr"][-2000:],
+        "exit_code": result["exit_code"],
+        "duration": duration,
+    }
 
-        from alphanso.graph.state import MainScriptResult
-        script_result: MainScriptResult = {
-            "command": command,
-            "success": success,
-            "output": result.stdout[-2000:],  # Last 2000 chars
-            "stderr": result.stderr[-2000:],
-            "exit_code": result.returncode,
-            "duration": duration,
-        }
-
-        logger.debug(f"📤 Exiting run_main_script_node | success={success}")
-        return {
-            "main_script_result": script_result,
-            "main_script_succeeded": success,
-        }
-
-    except subprocess.TimeoutExpired:
-        duration = time.time() - start
-        logger.error(f"❌ Main script TIMED OUT after {timeout}s")
-
-        from alphanso.graph.state import MainScriptResult
-        script_result: MainScriptResult = {
-            "command": command,
-            "success": False,
-            "output": "",
-            "stderr": f"Command timed out after {timeout} seconds",
-            "exit_code": None,
-            "duration": duration,
-        }
-
-        logger.debug(f"📤 Exiting run_main_script_node | timeout")
-        return {
-            "main_script_result": script_result,
-            "main_script_succeeded": False,
-        }
-
-    except Exception as e:
-        duration = time.time() - start
-        logger.error(f"❌ Main script raised exception: {e}")
-        logger.debug(f"Exception details:", exc_info=True)
-
-        from alphanso.graph.state import MainScriptResult
-        script_result: MainScriptResult = {
-            "command": command,
-            "success": False,
-            "output": "",
-            "stderr": str(e),
-            "exit_code": None,
-            "duration": duration,
-        }
-
-        logger.debug(f"📤 Exiting run_main_script_node | exception")
-        return {
-            "main_script_result": script_result,
-            "main_script_succeeded": False,
-        }
+    logger.debug(f"📤 Exiting run_main_script_node | success={success}")
+    return {
+        "main_script_result": script_result,
+        "main_script_succeeded": success,
+    }
 
 
-def validate_node(state: ConvergenceState) -> dict[str, Any]:
-    """Run validators to check current state.
+async def validate_node(state: ConvergenceState) -> dict[str, Any]:
+    """Run validators asynchronously to check current state.
 
     Executes configured validators (build, test, conflict checks, etc.) in order
     until one fails or all pass. Stops immediately on first failure to allow
@@ -369,14 +321,14 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
         ...     ],
         ...     "working_directory": "/path/to/repo"
         ... }
-        >>> updates = validate_node(state)
+        >>> updates = await validate_node(state)
         >>> "success" in updates
         True
         >>> "validation_results" in updates
         True
     """
     logger.info("=" * 70)
-    logger.info("NODE: validate")
+    logger.info("NODE: validate (async)")
     logger.info("=" * 70)
     logger.info("Running validators to check current state...")
 
@@ -401,13 +353,15 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
 
     # Run each validator and collect results
     # IMPORTANT: Stop on first failure to call AI immediately with the error
+    # NOTE: Validators run SEQUENTIALLY (not in parallel), in config order
     validation_results = []
     failed_validators = []
 
     for idx, validator in enumerate(validators, 1):
         logger.info(f"[{idx}/{len(validators)}] {validator.name}")
 
-        result = validator.run()
+        # Run async - but WAIT for each one to complete before moving to next
+        result = await validator.arun()
         validation_results.append(result)
 
         # Show result
@@ -464,7 +418,7 @@ def validate_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
-def decide_node(state: ConvergenceState) -> dict[str, Any]:
+async def decide_node(state: ConvergenceState) -> dict[str, Any]:
     """Decide whether to continue, retry, or end.
 
     This node is a pass-through for STEP 3. The actual routing decision
@@ -522,7 +476,7 @@ def decide_node(state: ConvergenceState) -> dict[str, Any]:
     return {}
 
 
-def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
+async def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
     """Increment attempt counter for retry loop.
 
     This node runs after validation failures when retrying.
@@ -572,8 +526,8 @@ def increment_attempt_node(state: ConvergenceState) -> dict[str, Any]:
     }
 
 
-def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
-    """Invoke Claude agent to investigate and fix validation failures.
+async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
+    """Invoke Claude agent asynchronously to investigate and fix validation failures.
 
     This node is called when validators fail. It uses the Claude Agent SDK
     to analyze the validation failures and attempt to fix them using available
@@ -603,12 +557,12 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
         ...     "agent_config": {"model": "claude-sonnet-4-5@20250929"},
         ...     "working_directory": "/path/to/repo"
         ... }
-        >>> updates = ai_fix_node(state)
+        >>> updates = await ai_fix_node(state)
         >>> "ai_response" in updates
         True
     """
     logger.info("=" * 70)
-    logger.info("NODE: ai_fix")
+    logger.info("NODE: ai_fix (async)")
     logger.info("=" * 70)
     logger.info("Invoking Claude agent to investigate and fix failures...")
 
@@ -644,11 +598,11 @@ def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
     system_prompt = build_fix_prompt(state, custom_prompt=custom_prompt)
     user_message = build_user_message(state)
 
-    # Invoke agent
+    # Invoke agent asynchronously
     try:
-        logger.info("🤖 Invoking Claude agent...")
+        logger.info("🤖 Invoking Claude agent (async)...")
 
-        response = agent.invoke(system_prompt, user_message)
+        response = await agent.ainvoke(system_prompt, user_message)
 
         logger.info(f"✅ Agent invocation completed")
         logger.info(f"   Stop reason: {response.get('stop_reason', 'unknown')}")

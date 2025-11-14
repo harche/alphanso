@@ -5,9 +5,9 @@ and checks their exit codes. It's run by the framework, not by Claude.
 """
 
 import logging
-import subprocess
 
 from alphanso.graph.state import ValidationResult
+from alphanso.utils.subprocess import run_command_async
 from alphanso.validators.base import Validator
 
 logger = logging.getLogger(__name__)
@@ -51,41 +51,40 @@ class CommandValidator(Validator):
         self.capture_lines = capture_lines
         self.working_dir = working_dir
 
-    def validate(self) -> ValidationResult:
-        """Run command and check exit code.
+    async def avalidate(self) -> ValidationResult:
+        """Run command asynchronously and check exit code.
+
+        Async version of validate() for use in async applications.
 
         Returns:
             ValidationResult with command output and exit status
         """
-        logger.info(f"Running command: {self.command}")
+        logger.info(f"Running command (async): {self.command}")
         logger.info(f"Working directory: {self.working_dir}")
         logger.info(f"Timeout: {self.timeout}s")
 
-        result = subprocess.run(
+        result = await run_command_async(
             self.command,
-            shell=True,
-            capture_output=True,
-            text=True,
             timeout=self.timeout,
-            cwd=self.working_dir,
+            working_dir=self.working_dir,
         )
 
-        logger.info(f"Command exit code: {result.returncode}")
+        logger.info(f"Command exit code: {result['exit_code']}")
 
         # Capture last N lines
-        stdout_lines = result.stdout.split("\n") if result.stdout else []
-        stderr_lines = result.stderr.split("\n") if result.stderr else []
+        stdout_lines = result["output"].split("\n") if result["output"] else []
+        stderr_lines = result["stderr"].split("\n") if result["stderr"] else []
 
         captured_stdout = "\n".join(stdout_lines[-self.capture_lines :])
         captured_stderr = "\n".join(stderr_lines[-self.capture_lines :])
 
         return ValidationResult(
             validator_name=self.name,
-            success=result.returncode == 0,
+            success=result["success"],
             output=captured_stdout,
             stderr=captured_stderr,
-            exit_code=result.returncode,
-            duration=0.0,  # Will be set by run()
-            timestamp=0.0,  # Will be set by run()
+            exit_code=result["exit_code"],
+            duration=0.0,  # Will be set by arun()
+            timestamp=0.0,  # Will be set by arun()
             metadata={"command": self.command},
         )

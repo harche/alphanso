@@ -52,14 +52,17 @@ class TestMainScriptConfig:
 class TestRunMainScriptNode:
     """Tests for run_main_script_node function."""
 
-    @patch("subprocess.run")
-    def test_successful_script_execution(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_successful_script_execution(self, mock_run: MagicMock) -> None:
         """Test successful main script execution."""
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Script succeeded",
-            stderr="",
-        )
+        mock_run.return_value = {
+            "success": True,
+            "output": "Script succeeded",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 1.5,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -72,21 +75,24 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        result = run_main_script_node(state)
+        result = await run_main_script_node(state)
 
         assert result["main_script_succeeded"] is True
         assert result["main_script_result"]["success"] is True
         assert result["main_script_result"]["exit_code"] == 0
         assert "Script succeeded" in result["main_script_result"]["output"]
 
-    @patch("subprocess.run")
-    def test_failed_script_execution(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_failed_script_execution(self, mock_run: MagicMock) -> None:
         """Test failed main script execution."""
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="Error: rebase failed",
-        )
+        mock_run.return_value = {
+            "success": False,
+            "output": "",
+            "stderr": "Error: rebase failed",
+            "exit_code": 1,
+            "duration": 1.5,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -99,17 +105,24 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        result = run_main_script_node(state)
+        result = await run_main_script_node(state)
 
         assert result["main_script_succeeded"] is False
         assert result["main_script_result"]["success"] is False
         assert result["main_script_result"]["exit_code"] == 1
         assert "rebase failed" in result["main_script_result"]["stderr"]
 
-    @patch("subprocess.run")
-    def test_script_timeout(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_script_timeout(self, mock_run: MagicMock) -> None:
         """Test script timeout handling."""
-        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 300)
+        mock_run.return_value = {
+            "success": False,
+            "output": "",
+            "stderr": "Command timed out after 300 seconds",
+            "exit_code": None,
+            "duration": 300.0,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -122,17 +135,24 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        result = run_main_script_node(state)
+        result = await run_main_script_node(state)
 
         assert result["main_script_succeeded"] is False
         assert result["main_script_result"]["success"] is False
         assert result["main_script_result"]["exit_code"] is None
         assert "timed out" in result["main_script_result"]["stderr"]
 
-    @patch("subprocess.run")
-    def test_script_exception(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_script_exception(self, mock_run: MagicMock) -> None:
         """Test script execution exception handling."""
-        mock_run.side_effect = Exception("Command not found")
+        mock_run.return_value = {
+            "success": False,
+            "output": "",
+            "stderr": "Command not found",
+            "exit_code": None,
+            "duration": 0.1,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -145,16 +165,23 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        result = run_main_script_node(state)
+        result = await run_main_script_node(state)
 
         assert result["main_script_succeeded"] is False
         assert result["main_script_result"]["success"] is False
         assert "Command not found" in result["main_script_result"]["stderr"]
 
-    @patch("subprocess.run")
-    def test_respects_timeout_parameter(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_respects_timeout_parameter(self, mock_run: MagicMock) -> None:
         """Test that timeout parameter is passed to subprocess."""
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_run.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 1.0,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -167,15 +194,22 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        run_main_script_node(state)
+        await run_main_script_node(state)
 
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["timeout"] == 123.45
 
-    @patch("subprocess.run")
-    def test_respects_working_directory(self, mock_run: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("alphanso.graph.nodes.run_command_async")
+    async def test_respects_working_directory(self, mock_run: MagicMock) -> None:
         """Test that working directory is passed to subprocess."""
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_run.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 1.0,
+        }
 
         state: ConvergenceState = {
             "main_script_config": {
@@ -188,10 +222,10 @@ class TestRunMainScriptNode:
             "max_attempts": 10,
         }
 
-        run_main_script_node(state)
+        await run_main_script_node(state)
 
         mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs["cwd"] == "/custom/path"
+        assert mock_run.call_args.kwargs["working_dir"] == "/custom/path"
 
 
 class TestCheckMainScriptEdge:

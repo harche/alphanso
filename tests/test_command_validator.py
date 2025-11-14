@@ -239,9 +239,11 @@ test:
             timeout=0.5,
         )
 
-        # Should timeout
-        with pytest.raises(subprocess.TimeoutExpired):
-            validator.validate()
+        # Should timeout and return a failed result
+        result = validator.run()
+        assert result["success"] is False
+        assert result["exit_code"] is None
+        assert "timed out" in result["stderr"].lower()
 
     def test_stderr_and_stdout_together(self) -> None:
         """Test command that produces both stdout and stderr."""

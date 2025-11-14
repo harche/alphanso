@@ -3,6 +3,7 @@
 This module provides the main programmatic interface for using Alphanso.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -36,7 +37,7 @@ class ConvergenceResult(TypedDict):
     working_directory: str
 
 
-def run_convergence(
+async def arun_convergence(
     config: ConvergenceConfig,
     system_prompt_content: str | None = None,
     env_vars: dict[str, str] | None = None,
@@ -44,9 +45,12 @@ def run_convergence(
     config_directory: str | Path | None = None,
     log_level: int = logging.INFO,
 ) -> ConvergenceResult:
-    """Run Alphanso convergence loop with the given configuration.
+    """Run Alphanso convergence loop asynchronously with the given configuration.
 
-    This is the main entry point for using Alphanso programmatically.
+    This is the async entry point for embedding Alphanso in async applications like:
+    - Kubernetes operators (kopf, kubernetes-asyncio)
+    - FastAPI/async web servers
+    - Concurrent workflow orchestration
 
     Args:
         config: ConvergenceConfig object with workflow configuration
@@ -67,38 +71,29 @@ def run_convergence(
     Returns:
         ConvergenceResult with success status and pre-action results
 
-    Example:
-        >>> from alphanso.api import run_convergence
-        >>> from alphanso.config.schema import ConvergenceConfig, PreActionConfig
-        >>>
-        >>> # Create config programmatically
-        >>> config = ConvergenceConfig(
-        ...     name="My Workflow",
-        ...     max_attempts=10,
-        ...     pre_actions=[
-        ...         PreActionConfig(
-        ...             command="echo 'Hello'",
-        ...             description="Greeting"
-        ...         )
-        ...     ]
+    Example (Kubernetes Operator):
+        >>> @kopf.on.create('alphanso.io', 'v1', 'convergences')
+        >>> async def reconcile(spec, **kwargs):
+        ...     config = ConvergenceConfig(**spec)
+        ...     result = await arun_convergence(
+        ...         config=config,
+        ...         system_prompt_content=spec['systemPrompt']
+        ...     )
+        ...     return result
+
+    Example (Concurrent Execution):
+        >>> results = await asyncio.gather(
+        ...     arun_convergence(config1, ...),
+        ...     arun_convergence(config2, ...),
+        ...     arun_convergence(config3, ...),
         ... )
-        >>>
-        >>> # Run convergence
-        >>> result = run_convergence(
-        ...     config=config,
-        ...     env_vars={"K8S_TAG": "v1.35.0"}
-        ... )
-        >>>
-        >>> if result["success"]:
-        ...     print("All steps succeeded!")
     """
     # Setup logging if not already configured
-    # This ensures API users get logging output even if they don't call setup_logging()
     if not is_logging_configured():
         setup_logging(level=log_level)
 
     logger.info("=" * 70)
-    logger.info(f"Starting convergence: {config.name}")
+    logger.info(f"Starting convergence (async): {config.name}")
     logger.info("=" * 70)
 
     # Initialize env_vars if not provided
@@ -172,17 +167,14 @@ def run_convergence(
     graph = create_convergence_graph()
 
     # Calculate recursion limit based on max_attempts
-    # Each retry iteration consumes approximately 6 graph steps:
-    # run_main_script -> validate -> decide -> increment_attempt -> ai_fix -> run_main_script
-    # Adding buffer of 10 for pre_actions and final steps
     recursion_limit = config.max_attempts * 6 + 10
     logger.info(f"Setting recursion limit to {recursion_limit} (max_attempts={config.max_attempts})")
 
-    logger.info("Executing convergence loop...")
-    final_state = graph.invoke(initial_state, {"recursion_limit": recursion_limit})
+    logger.info("Executing convergence loop (async)...")
+    # Use ainvoke for async execution
+    final_state = await graph.ainvoke(initial_state, {"recursion_limit": recursion_limit})
 
     # Determine overall success
-    # Success = main script succeeded (we trust its exit code)
     pre_actions_succeeded = not final_state.get("pre_actions_failed", False)
     main_script_succeeded = final_state.get("main_script_succeeded", False)
     overall_success = pre_actions_succeeded and main_script_succeeded
@@ -206,3 +198,75 @@ def run_convergence(
     logger.info("=" * 70)
 
     return result
+
+
+def run_convergence(
+    config: ConvergenceConfig,
+    system_prompt_content: str | None = None,
+    env_vars: dict[str, str] | None = None,
+    working_directory: str | Path | None = None,
+    config_directory: str | Path | None = None,
+    log_level: int = logging.INFO,
+) -> ConvergenceResult:
+    """Run Alphanso convergence loop with the given configuration (synchronous).
+
+    This is the main synchronous entry point for using Alphanso in non-async contexts
+    (CLI, scripts, etc.). It wraps the async arun_convergence() function.
+
+    For async applications (Kubernetes operators, web servers), use arun_convergence() instead.
+
+    Args:
+        config: ConvergenceConfig object with workflow configuration
+        system_prompt_content: System prompt content defining agent's role and task.
+                              CLI loads this from config.agent.claude.system_prompt_file.
+                              Direct API users should provide the content directly.
+        env_vars: Optional environment variables for substitution in pre-actions.
+                 If CURRENT_TIME is not provided, it will be added automatically.
+        working_directory: Optional working directory for command execution (main script/validators).
+                          Defaults to config.working_directory if not provided.
+        config_directory: Optional directory containing config file (for pre-actions).
+                         If provided, pre-actions run in this directory. If None, pre-actions
+                         run in current directory. CLI always sets this to config file's directory.
+        log_level: Logging level for API users. Only used if logging not already
+                  configured. Defaults to logging.INFO. Use logging.DEBUG for
+                  detailed diagnostics.
+
+    Returns:
+        ConvergenceResult with success status and pre-action results
+
+    Example:
+        >>> from alphanso.api import run_convergence
+        >>> from alphanso.config.schema import ConvergenceConfig, PreActionConfig
+        >>>
+        >>> # Create config programmatically
+        >>> config = ConvergenceConfig(
+        ...     name="My Workflow",
+        ...     max_attempts=10,
+        ...     pre_actions=[
+        ...         PreActionConfig(
+        ...             command="echo 'Hello'",
+        ...             description="Greeting"
+        ...         )
+        ...     ]
+        ... )
+        >>>
+        >>> # Run convergence
+        >>> result = run_convergence(
+        ...     config=config,
+        ...     env_vars={"K8S_TAG": "v1.35.0"}
+        ... )
+        >>>
+        >>> if result["success"]:
+        ...     print("All steps succeeded!")
+    """
+    # Run the async version in a new event loop
+    return asyncio.run(
+        arun_convergence(
+            config=config,
+            system_prompt_content=system_prompt_content,
+            env_vars=env_vars,
+            working_directory=working_directory,
+            config_directory=config_directory,
+            log_level=log_level,
+        )
+    )

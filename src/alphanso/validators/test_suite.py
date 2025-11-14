@@ -6,10 +6,8 @@ to analyze. No framework-specific logic needed - the AI is smart enough to under
 the failures.
 """
 
-import subprocess
-from typing import Any
-
 from alphanso.graph.state import ValidationResult
+from alphanso.utils.subprocess import run_command_async
 from alphanso.validators.base import Validator
 
 
@@ -71,47 +69,47 @@ class TestSuiteValidator(Validator):
         self.capture_lines = capture_lines
         self.working_directory = working_directory
 
-    def validate(self) -> ValidationResult:
-        """Run test command and capture output.
+    async def avalidate(self) -> ValidationResult:
+        """Run test command asynchronously and capture output.
+
+        Async version of validate() for use in async applications.
 
         Returns:
             ValidationResult with full stderr and truncated stdout for AI analysis
         """
         # Run the command as-is
-        try:
-            result = subprocess.run(
-                self.command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                cwd=self.working_directory,
-            )
-        except subprocess.TimeoutExpired:
+        result = await run_command_async(
+            self.command,
+            timeout=self.timeout,
+            working_dir=self.working_directory,
+        )
+
+        if result["exit_code"] is None:
+            # Timeout or error
             return ValidationResult(
                 validator_name=self.name,
                 success=False,
                 output="",
-                stderr=f"Command timed out after {self.timeout}s",
+                stderr=result["stderr"],
                 exit_code=None,
                 duration=0.0,
                 timestamp=0.0,
                 metadata={"timeout": True},
             )
 
-        # Truncate output to last N lines (most relevant errors are usually at the end)
-        output = self._truncate_output(result.stdout, self.capture_lines)
-        # Always include full stderr (usually contains the important error messages)
-        stderr = result.stderr
+        # Truncate output to last N lines
+        output = self._truncate_output(result["output"], self.capture_lines)
+        # Always include full stderr
+        stderr = result["stderr"]
 
         return ValidationResult(
             validator_name=self.name,
-            success=result.returncode == 0,
+            success=result["success"],
             output=output,
             stderr=stderr,
-            exit_code=result.returncode,
-            duration=0.0,  # Will be set by run()
-            timestamp=0.0,  # Will be set by run()
+            exit_code=result["exit_code"],
+            duration=0.0,  # Will be set by arun()
+            timestamp=0.0,  # Will be set by arun()
             metadata={},
         )
 

@@ -77,7 +77,7 @@ class TestConvergenceAgent:
             agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
             # Mock the async invoke method
-            with patch.object(agent, '_async_invoke', new_callable=AsyncMock, return_value=mock_response):
+            with patch.object(agent, 'ainvoke', new_callable=AsyncMock, return_value=mock_response):
                 response = agent.invoke(
                     system_prompt="You are a test agent",
                     user_message="Fix the build",
@@ -96,7 +96,7 @@ class TestConvergenceAgent:
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
-            with patch.object(agent, '_async_invoke', new_callable=AsyncMock, return_value=mock_response) as mock_async:
+            with patch.object(agent, 'ainvoke', new_callable=AsyncMock, return_value=mock_response) as mock_async:
                 agent.invoke(
                     system_prompt="Test system prompt",
                     user_message="Test user message",

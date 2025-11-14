@@ -3,6 +3,7 @@
 This module tests LangGraph integration and graph execution.
 """
 
+import pytest
 import time
 from typing import Any
 from unittest.mock import patch
@@ -12,7 +13,7 @@ from alphanso.graph.nodes import decide_node, pre_actions_node, validate_node
 from alphanso.graph.state import ConvergenceState
 
 
-def mock_ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
+async def mock_ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
     """Mock ai_fix_node that returns empty dict without calling real agent.
 
     This prevents tests from requiring ANTHROPIC_API_KEY or making real API calls.
@@ -54,7 +55,8 @@ def create_test_state(**overrides: Any) -> ConvergenceState:
 class TestGraphNodes:
     """Tests for individual graph nodes."""
 
-    def test_pre_actions_node_returns_partial_updates(self) -> None:
+    @pytest.mark.asyncio
+    async def test_pre_actions_node_returns_partial_updates(self) -> None:
         """Test pre_actions_node returns partial state updates."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
@@ -65,7 +67,7 @@ class TestGraphNodes:
             "working_directory": ".",
         }
 
-        updates = pre_actions_node(state)
+        updates = await pre_actions_node(state)
 
         # Returns partial updates, not full state
         assert "pre_actions_completed" in updates
@@ -73,22 +75,24 @@ class TestGraphNodes:
         assert updates["pre_actions_completed"] is True
         assert len(updates["pre_action_results"]) == 1
 
-    def test_validate_node_placeholder(self) -> None:
+    @pytest.mark.asyncio
+    async def test_validate_node_placeholder(self) -> None:
         """Test validate_node placeholder returns success."""
         state: ConvergenceState = {"attempt": 0}
 
-        updates = validate_node(state)
+        updates = await validate_node(state)
 
         # Placeholder always succeeds
         assert updates["success"] is True
         assert updates["validation_results"] == []
         assert updates["failed_validators"] == []
 
-    def test_decide_node_placeholder(self) -> None:
+    @pytest.mark.asyncio
+    async def test_decide_node_placeholder(self) -> None:
         """Test decide_node placeholder returns empty dict."""
         state: ConvergenceState = {"success": True}
 
-        updates = decide_node(state)
+        updates = await decide_node(state)
 
         # Placeholder returns no updates
         assert updates == {}
@@ -105,7 +109,8 @@ class TestGraphBuilder:
         assert graph is not None
 
     @patch("alphanso.graph.nodes.ai_fix_node", mock_ai_fix_node)
-    def test_graph_executes_end_to_end(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_executes_end_to_end(self) -> None:
         """Test graph executes from START to END with main script success."""
         graph = create_convergence_graph()
 
@@ -113,14 +118,15 @@ class TestGraphBuilder:
             pre_actions_config=[{"command": "echo 'hello'", "description": "Test"}],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Should reach END with script success
         assert final_state["pre_actions_completed"] is True
         assert final_state["main_script_succeeded"] is True
         assert len(final_state["pre_action_results"]) == 1
 
-    def test_graph_threads_state_through_nodes(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_threads_state_through_nodes(self) -> None:
         """Test state is properly threaded through all nodes."""
         graph = create_convergence_graph()
 
@@ -132,7 +138,7 @@ class TestGraphBuilder:
             env_vars={"TEST_VAR": "test_value"},
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # State should preserve original fields
         # Note: pre_actions_node adds WORKING_DIR to env_vars
@@ -153,7 +159,8 @@ class TestGraphBuilder:
         assert final_state.get("validation_results") is None
         assert final_state.get("failed_validators") is None
 
-    def test_graph_execution_performance(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_execution_performance(self) -> None:
         """Test graph execution completes quickly (< 100ms for simple case)."""
         graph = create_convergence_graph()
 
@@ -162,13 +169,14 @@ class TestGraphBuilder:
         )
 
         start = time.time()
-        graph.invoke(initial_state)
+        await graph.ainvoke(initial_state)
         duration = time.time() - start
 
         # Should complete in < 100ms
         assert duration < 0.1
 
-    def test_graph_pre_actions_to_validate_to_decide_flow(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_pre_actions_to_validate_to_decide_flow(self) -> None:
         """Test graph follows pre_actions → run_main_script → END (success) flow."""
         graph = create_convergence_graph()
 
@@ -178,7 +186,7 @@ class TestGraphBuilder:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Flow: pre_actions sets completed and results
         assert final_state["pre_actions_completed"] is True
@@ -190,7 +198,8 @@ class TestGraphBuilder:
         # Validation never runs when main script succeeds
         assert final_state.get("validation_results") is None
 
-    def test_graph_handles_multiple_pre_actions(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_handles_multiple_pre_actions(self) -> None:
         """Test graph executes multiple pre-actions sequentially."""
         graph = create_convergence_graph()
 
@@ -202,7 +211,7 @@ class TestGraphBuilder:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # All pre-actions should be executed
         assert len(final_state["pre_action_results"]) == 3
@@ -213,7 +222,8 @@ class TestGraphBuilder:
         assert final_state["pre_action_results"][1]["action"] == "Second"
         assert final_state["pre_action_results"][2]["action"] == "Third"
 
-    def test_graph_with_failing_pre_action(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_with_failing_pre_action(self) -> None:
         """Test graph ends immediately when pre-action fails."""
         graph = create_convergence_graph()
 
@@ -225,7 +235,7 @@ class TestGraphBuilder:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # All pre-actions should run (failures don't stop execution within pre_actions_node)
         assert len(final_state["pre_action_results"]) == 3
@@ -244,7 +254,8 @@ class TestGraphBuilder:
 class TestGraphStateImmutability:
     """Tests for state immutability patterns."""
 
-    def test_graph_does_not_mutate_initial_state(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_does_not_mutate_initial_state(self) -> None:
         """Test graph doesn't mutate the initial state object."""
         graph = create_convergence_graph()
 
@@ -259,7 +270,7 @@ class TestGraphStateImmutability:
         original_success = initial_state["success"]
 
         # Execute graph
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Initial state should be unchanged
         assert initial_state["pre_actions_completed"] == original_completed
@@ -274,7 +285,8 @@ class TestGraphStateImmutability:
 class TestGraphRetryLoop:
     """Tests for STEP 3: Retry loop with conditional edges."""
 
-    def test_success_on_first_attempt_goes_to_end(self) -> None:
+    @pytest.mark.asyncio
+    async def test_success_on_first_attempt_goes_to_end(self) -> None:
         """Test that successful main script on first attempt goes directly to END."""
         graph = create_convergence_graph()
 
@@ -283,7 +295,7 @@ class TestGraphRetryLoop:
             validators_config=[],  # No validators = success
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Main script succeeds on first attempt
         assert final_state["main_script_succeeded"] is True
@@ -292,7 +304,8 @@ class TestGraphRetryLoop:
         assert final_state.get("failure_history") is None
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_failure_with_attempts_remaining_increments(self) -> None:
+    @pytest.mark.asyncio
+    async def test_failure_with_attempts_remaining_increments(self) -> None:
         """Test that validation failure with attempts remaining increments attempt."""
         graph = create_convergence_graph()
 
@@ -316,7 +329,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Should fail after max attempts
         assert final_state["success"] is False
@@ -325,7 +338,8 @@ class TestGraphRetryLoop:
         assert len(final_state["failed_validators"]) > 0
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_max_attempts_reached_goes_to_end_failure(self) -> None:
+    @pytest.mark.asyncio
+    async def test_max_attempts_reached_goes_to_end_failure(self) -> None:
         """Test that max attempts reached goes to END with failure."""
         graph = create_convergence_graph()
 
@@ -347,7 +361,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Should stop after 2 attempts
         assert final_state["success"] is False
@@ -355,7 +369,8 @@ class TestGraphRetryLoop:
         assert len(final_state["failure_history"]) == 2
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_failure_history_tracked_correctly(self) -> None:
+    @pytest.mark.asyncio
+    async def test_failure_history_tracked_correctly(self) -> None:
         """Test that failure history accumulates correctly across attempts."""
         graph = create_convergence_graph()
 
@@ -377,7 +392,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Failure history should have all attempts
         assert len(final_state["failure_history"]) == 3
@@ -390,7 +405,8 @@ class TestGraphRetryLoop:
             assert history_entry[0]["success"] is False
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_attempt_counter_increments_correctly(self) -> None:
+    @pytest.mark.asyncio
+    async def test_attempt_counter_increments_correctly(self) -> None:
         """Test that attempt counter increments on each retry."""
         graph = create_convergence_graph()
 
@@ -413,14 +429,15 @@ class TestGraphRetryLoop:
         )
 
         # Calculate recursion limit: max_attempts * 6 + 10
-        final_state = graph.invoke(initial_state, {"recursion_limit": 5 * 6 + 10})
+        final_state = await graph.ainvoke(initial_state, {"recursion_limit": 5 * 6 + 10})
 
         # After 5 attempts (0-4), should be at attempt 4
         assert final_state["attempt"] == 4
         assert len(final_state["failure_history"]) == 5
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_graph_executes_multiple_retry_loops(self) -> None:
+    @pytest.mark.asyncio
+    async def test_graph_executes_multiple_retry_loops(self) -> None:
         """Test that graph can execute multiple validation loops."""
         graph = create_convergence_graph()
 
@@ -442,7 +459,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Should have looped 4 times
         # Attempt progression: 0 → 1 → 2 → 3
@@ -450,7 +467,8 @@ class TestGraphRetryLoop:
         assert len(final_state["failure_history"]) == 4
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_state_preserved_across_iterations(self) -> None:
+    @pytest.mark.asyncio
+    async def test_state_preserved_across_iterations(self) -> None:
         """Test that state fields are preserved across retry loop iterations."""
         graph = create_convergence_graph()
 
@@ -474,7 +492,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Original state fields should be preserved
         assert final_state["env_vars"]["CUSTOM_VAR"] == "preserved_value"
@@ -510,7 +528,8 @@ class TestGraphRetryLoop:
         assert should_continue(state_retry) == "retry"
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_integration_with_failing_validator(self) -> None:
+    @pytest.mark.asyncio
+    async def test_integration_with_failing_validator(self) -> None:
         """Integration test with real failing validator demonstrating retry loop."""
         graph = create_convergence_graph()
 
@@ -534,7 +553,7 @@ class TestGraphRetryLoop:
             ],
         )
 
-        final_state = graph.invoke(initial_state)
+        final_state = await graph.ainvoke(initial_state)
 
         # Pre-actions should complete
         assert final_state["pre_actions_completed"] is True
@@ -546,7 +565,8 @@ class TestGraphRetryLoop:
         assert len(final_state["failure_history"]) == 3
         assert "File Check" in final_state["failed_validators"]
 
-    def test_validators_pass_retries_main_script_without_ai_fix(self) -> None:
+    @pytest.mark.asyncio
+    async def test_validators_pass_retries_main_script_without_ai_fix(self) -> None:
         """Test that when validators pass, main script is retried without AI fix."""
         graph = create_convergence_graph()
 
@@ -610,7 +630,7 @@ class TestGraphRetryLoop:
                     ],
                 )
 
-                final_state = graph.invoke(initial_state)
+                final_state = await graph.ainvoke(initial_state)
 
                 # Main script should have run exactly 2 times
                 assert attempt_counter["count"] == 2
@@ -626,19 +646,20 @@ class TestGraphRetryLoop:
                 assert len(final_state.get("failed_validators", [])) == 0
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
-    def test_validators_fail_goes_to_ai_fix_not_main_script(self) -> None:
+    @pytest.mark.asyncio
+    async def test_validators_fail_goes_to_ai_fix_not_main_script(self) -> None:
         """Test that when validators fail, we go to AI fix (not retry main script)."""
         graph = create_convergence_graph()
 
         # Track which nodes get called
         call_sequence = []
 
-        def tracking_ai_fix_node(state: ConvergenceState) -> dict:
+        async def tracking_ai_fix_node(state: ConvergenceState) -> dict:
             """Track when AI fix is called."""
             call_sequence.append("ai_fix")
-            return mock_ai_fix_node(state)
+            return await mock_ai_fix_node(state)
 
-        def tracking_main_script_node(state: ConvergenceState) -> dict:
+        async def tracking_main_script_node(state: ConvergenceState) -> dict:
             """Track when main script is called."""
             call_sequence.append("main_script")
             # Always fail so validators run
@@ -676,7 +697,7 @@ class TestGraphRetryLoop:
                     ],
                 )
 
-                final_state = graph.invoke(initial_state)
+                final_state = await graph.ainvoke(initial_state)
 
                 # Verify the call sequence shows AI fix is called after validator failures
                 # Expected sequence:

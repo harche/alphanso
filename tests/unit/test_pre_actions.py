@@ -4,7 +4,7 @@ This module contains comprehensive tests for the PreAction class and
 pre_actions_node function, covering all success criteria from STEP 0.
 """
 
-import subprocess
+import pytest
 from unittest.mock import Mock, patch
 
 from alphanso.actions.pre_actions import PreAction
@@ -50,10 +50,20 @@ class TestPreAction:
         assert result["action"] == "Failing command"
         assert isinstance(result["duration"], float)
 
-    @patch("subprocess.run")
-    def test_respects_timeout(self, mock_run: Mock) -> None:
+    @patch("asyncio.create_subprocess_shell")
+    def test_respects_timeout(self, mock_subprocess: Mock) -> None:
         """Test 4: PreAction respects timeout (600s)."""
-        mock_run.side_effect = subprocess.TimeoutExpired("test", 600)
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        # Create mock process
+        mock_process = AsyncMock()
+        mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_process.kill = Mock()  # kill() is not a coroutine in real asyncio
+        mock_process.wait = AsyncMock()
+
+        # Mock create_subprocess_shell to return our mock process
+        mock_subprocess.return_value = mock_process
 
         action = PreAction(command="sleep 1000", description="Timeout test")
         result = action.run({})
@@ -111,8 +121,9 @@ class TestPreAction:
 
     def test_exception_handling(self) -> None:
         """Test handling of unexpected exceptions."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = RuntimeError("Unexpected error")
+        with patch("asyncio.create_subprocess_shell") as mock_subprocess:
+            # Mock create_subprocess_shell to raise RuntimeError
+            mock_subprocess.side_effect = RuntimeError("Unexpected error")
 
             action = PreAction(command="test", description="Error test")
             result = action.run({})
@@ -172,7 +183,8 @@ class TestPreAction:
 class TestPreActionsNode:
     """Tests for pre_actions_node function."""
 
-    def test_pre_actions_run_in_config_directory_when_provided(self) -> None:
+    @pytest.mark.asyncio
+    async def test_pre_actions_run_in_config_directory_when_provided(self) -> None:
         """Test that pre-actions run in config_directory when provided (CLI usage)."""
         import os
         import tempfile
@@ -205,7 +217,7 @@ class TestPreActionsNode:
                     "config_directory": str(config_dir),  # Pre-actions run here!
                 }
 
-                updated_state = pre_actions_node(state)
+                updated_state = await pre_actions_node(state)
 
                 # Pre-actions should succeed
                 assert updated_state["pre_actions_completed"] is True
@@ -232,7 +244,8 @@ class TestPreActionsNode:
             finally:
                 os.chdir(original_cwd)
 
-    def test_pre_actions_run_in_current_directory_when_no_config_directory(self) -> None:
+    @pytest.mark.asyncio
+    async def test_pre_actions_run_in_current_directory_when_no_config_directory(self) -> None:
         """Test that pre-actions run in current directory when config_directory is None (API usage)."""
         import os
         import tempfile
@@ -258,7 +271,7 @@ class TestPreActionsNode:
                     "config_directory": None,  # No config directory = use current
                 }
 
-                updated_state = pre_actions_node(state)
+                updated_state = await pre_actions_node(state)
 
                 # Pre-actions should succeed
                 assert updated_state["pre_actions_completed"] is True
@@ -284,7 +297,8 @@ class TestPreActionsNode:
             finally:
                 os.chdir(original_cwd)
 
-    def test_runs_all_actions_sequentially(self) -> None:
+    @pytest.mark.asyncio
+    async def test_runs_all_actions_sequentially(self) -> None:
         """Test 5: Pre-actions node runs all actions sequentially."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
@@ -301,13 +315,14 @@ class TestPreActionsNode:
             "working_directory": ".",
         }
 
-        updated_state = pre_actions_node(state)
+        updated_state = await pre_actions_node(state)
 
         assert updated_state["pre_actions_completed"] is True
         assert len(updated_state["pre_action_results"]) == 3
         assert all(r["success"] for r in updated_state["pre_action_results"])
 
-    def test_continues_on_failures(self) -> None:
+    @pytest.mark.asyncio
+    async def test_continues_on_failures(self) -> None:
         """Test 6: Pre-actions node continues on failures."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
@@ -324,7 +339,7 @@ class TestPreActionsNode:
             "working_directory": ".",
         }
 
-        updated_state = pre_actions_node(state)
+        updated_state = await pre_actions_node(state)
 
         results = updated_state["pre_action_results"]
         assert len(results) == 3
@@ -332,7 +347,8 @@ class TestPreActionsNode:
         assert results[1]["success"] is False
         assert results[2]["success"] is True
 
-    def test_runs_only_once_idempotent(self) -> None:
+    @pytest.mark.asyncio
+    async def test_runs_only_once_idempotent(self) -> None:
         """Test 7: Pre-actions node runs only once (idempotent)."""
         state: ConvergenceState = {
             "pre_actions_completed": True,  # Already completed
@@ -347,12 +363,13 @@ class TestPreActionsNode:
             "working_directory": ".",
         }
 
-        updated_state = pre_actions_node(state)
+        updated_state = await pre_actions_node(state)
 
         # Should return empty dict (no updates)
         assert updated_state == {}
 
-    def test_pre_action_results_captured_in_state(self) -> None:
+    @pytest.mark.asyncio
+    async def test_pre_action_results_captured_in_state(self) -> None:
         """Test 9: Pre-action results are captured in state correctly."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
@@ -367,7 +384,7 @@ class TestPreActionsNode:
             "working_directory": ".",
         }
 
-        updated_state = pre_actions_node(state)
+        updated_state = await pre_actions_node(state)
 
         results = updated_state["pre_action_results"]
         assert len(results) == 1
@@ -377,7 +394,8 @@ class TestPreActionsNode:
         assert "duration" in results[0]
         assert "exit_code" in results[0]
 
-    def test_env_vars_are_substituted(self) -> None:
+    @pytest.mark.asyncio
+    async def test_env_vars_are_substituted(self) -> None:
         """Test that environment variables from state are used."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
@@ -392,7 +410,7 @@ class TestPreActionsNode:
             "working_directory": ".",
         }
 
-        updated_state = pre_actions_node(state)
+        updated_state = await pre_actions_node(state)
 
         output = updated_state["pre_action_results"][0]["output"]
         assert "v1.35.0" in output

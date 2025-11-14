@@ -72,10 +72,13 @@ class ConvergenceAgent:
         system_prompt: str,
         user_message: str,
     ) -> dict[str, Any]:
-        """Invoke Claude with validation failure context.
+        """Invoke Claude with validation failure context (synchronous).
 
         The SDK automatically provides built-in tools (Bash, Read, Write, Edit, etc.)
         for investigation and fixing.
+
+        This is a synchronous wrapper around ainvoke() for backward compatibility
+        and use in non-async contexts (e.g., CLI).
 
         Args:
             system_prompt: System prompt explaining the task and context
@@ -85,14 +88,20 @@ class ConvergenceAgent:
             Response dict with content, tool_calls, and stop_reason
         """
         # Run async invoke in sync context
-        return asyncio.run(self._async_invoke(system_prompt, user_message))
+        return asyncio.run(self.ainvoke(system_prompt, user_message))
 
-    async def _async_invoke(
+    async def ainvoke(
         self,
         system_prompt: str,
         user_message: str,
     ) -> dict[str, Any]:
-        """Async implementation of invoke.
+        """Invoke Claude with validation failure context (asynchronous).
+
+        The SDK automatically provides built-in tools (Bash, Read, Write, Edit, etc.)
+        for investigation and fixing.
+
+        This is the async version for use in async applications (e.g., Kubernetes operators,
+        web servers).
 
         Args:
             system_prompt: System prompt explaining the task

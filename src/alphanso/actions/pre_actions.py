@@ -7,9 +7,10 @@ the main convergence loop.
 
 import logging
 import re
-import subprocess
 import time
 from typing import TypedDict
+
+from alphanso.utils.subprocess import run_command_async
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,11 @@ class PreAction:
     def run(
         self, env_vars: dict[str, str], working_dir: str | None = None
     ) -> PreActionResult:
-        """Run pre-action with variable substitution.
+        """Run pre-action with variable substitution (sync wrapper).
 
-        Variables in the command are substituted using ${VAR_NAME} syntax.
-        The command is executed with a 600-second timeout.
-        Failures are captured but don't raise exceptions.
+        This is a convenience wrapper that calls arun() using asyncio.run().
+        The primary implementation is in arun() - this method is automatically
+        provided for backward compatibility with sync code.
 
         Args:
             env_vars: Dictionary of variables for substitution
@@ -85,44 +86,57 @@ class PreAction:
             >>> result = action.run({"TAG": "v1.35.0"}, working_dir="/path/to/repo")
             >>> # Command executed: "git merge upstream/v1.35.0" in /path/to/repo
         """
+        import asyncio
+
+        return asyncio.run(self.arun(env_vars, working_dir))
+
+    async def arun(
+        self, env_vars: dict[str, str], working_dir: str | None = None
+    ) -> PreActionResult:
+        """Run pre-action asynchronously with variable substitution.
+
+        Async version of run() for use in async applications (e.g., Kubernetes operators).
+        Variables in the command are substituted using ${VAR_NAME} syntax.
+        The command is executed with a 600-second timeout.
+
+        Args:
+            env_vars: Dictionary of variables for substitution
+            working_dir: Optional working directory for command execution.
+                        If not provided, uses current process directory.
+
+        Returns:
+            PreActionResult with execution details
+
+        Example:
+            >>> action = PreAction("git merge upstream/${TAG}")
+            >>> result = await action.arun({"TAG": "v1.35.0"}, working_dir="/path/to/repo")
+            >>> # Command executed: "git merge upstream/v1.35.0" in /path/to/repo
+        """
         # Substitute variables in command
         expanded_command = self._substitute_vars(self.command, env_vars)
 
-        logger.info(f"Pre-action: {self.description}")
+        logger.info(f"Pre-action (async): {self.description}")
         logger.info(f"Command (expanded): {expanded_command}")
         logger.info(f"Working directory: {working_dir}")
 
         # Run command with timing
         start = time.time()
         try:
-            result = subprocess.run(
+            result = await run_command_async(
                 expanded_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=600,  # 10 minute timeout
-                cwd=working_dir,  # Execute in specified directory
+                timeout=600.0,  # 10 minute timeout
+                working_dir=working_dir,
             )
 
-            logger.info(f"Pre-action exit code: {result.returncode}")
+            logger.info(f"Pre-action exit code: {result['exit_code']}")
 
             return PreActionResult(
                 action=self.description,
-                success=result.returncode == 0,
-                output=result.stdout[-1000:],  # Last 1000 chars
-                stderr=result.stderr[-1000:],
-                exit_code=result.returncode,
-                duration=time.time() - start,
-            )
-        except subprocess.TimeoutExpired:
-            logger.debug(f"Pre-action timed out after 600 seconds")
-            return PreActionResult(
-                action=self.description,
-                success=False,
-                output="",
-                stderr="Command timed out after 600 seconds",
-                exit_code=None,
-                duration=time.time() - start,
+                success=result["success"],
+                output=result["output"][-1000:],  # Last 1000 chars
+                stderr=result["stderr"][-1000:],
+                exit_code=result["exit_code"],
+                duration=result["duration"],
             )
         except Exception as e:
             logger.debug(f"Pre-action raised exception: {e}", exc_info=True)

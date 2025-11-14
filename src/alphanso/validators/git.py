@@ -4,8 +4,8 @@ This validator checks for Git merge conflict markers in the working tree.
 It's run by the framework, not by Claude.
 """
 
+import asyncio
 import logging
-import subprocess
 
 from alphanso.graph.state import ValidationResult
 from alphanso.validators.base import Validator
@@ -43,35 +43,63 @@ class GitConflictValidator(Validator):
         super().__init__(name, timeout)
         self.working_dir = working_dir
 
-    def validate(self) -> ValidationResult:
-        """Check for git conflict markers.
+    async def avalidate(self) -> ValidationResult:
+        """Check for git conflict markers asynchronously.
+
+        Async version of validate() for use in async applications.
 
         Returns:
             ValidationResult indicating whether conflicts were found
         """
-        logger.debug(f"Checking for git conflicts with: git diff --check")
+        logger.debug(f"Checking for git conflicts (async) with: git diff --check")
         logger.debug(f"Working directory: {self.working_dir}")
 
         # git diff --check exits with non-zero if it finds conflict markers
-        result = subprocess.run(
-            ["git", "diff", "--check"],
-            capture_output=True,
-            text=True,
-            timeout=self.timeout,
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            "diff",
+            "--check",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             cwd=self.working_dir,
         )
 
-        has_conflicts = result.returncode != 0
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                process.communicate(), timeout=self.timeout
+            )
+        except asyncio.TimeoutError:
+            # Kill the process if it times out
+            try:
+                process.kill()
+                await process.wait()
+            except:
+                pass
+            return ValidationResult(
+                validator_name=self.name,
+                success=False,
+                output="",
+                stderr=f"Command timed out after {self.timeout} seconds",
+                exit_code=None,
+                duration=0.0,
+                timestamp=0.0,
+                metadata={"command": "git diff --check", "has_conflicts": False},
+            )
+
+        stdout = stdout_bytes.decode("utf-8", errors="replace")
+        stderr = stderr_bytes.decode("utf-8", errors="replace")
+
+        has_conflicts = process.returncode != 0
         logger.debug(f"Git conflicts found: {has_conflicts}")
 
         return ValidationResult(
             validator_name=self.name,
             success=not has_conflicts,
-            output=result.stdout if result.stdout else "",
-            stderr=result.stderr if result.stderr else "",
-            exit_code=result.returncode,
-            duration=0.0,  # Will be set by run()
-            timestamp=0.0,  # Will be set by run()
+            output=stdout if stdout else "",
+            stderr=stderr if stderr else "",
+            exit_code=process.returncode,
+            duration=0.0,  # Will be set by arun()
+            timestamp=0.0,  # Will be set by arun()
             metadata={
                 "command": "git diff --check",
                 "has_conflicts": has_conflicts,
