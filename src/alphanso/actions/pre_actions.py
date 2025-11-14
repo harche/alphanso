@@ -8,8 +8,10 @@ the main convergence loop.
 import logging
 import re
 import time
-from typing import TypedDict
+from collections.abc import Callable
+from typing import Any, TypedDict
 
+from alphanso.utils.callable import run_callable_async
 from alphanso.utils.subprocess import run_command_async
 
 logger = logging.getLogger(__name__)
@@ -36,15 +38,15 @@ class PreActionResult(TypedDict):
 
 
 class PreAction:
-    """Execute pre-actions (setup commands before convergence loop).
+    """Execute pre-actions (setup commands or callables before convergence loop).
 
-    Pre-actions are commands that run once before the main validation/fixing loop.
+    Pre-actions are commands or callables that run once before the main validation/fixing loop.
     Examples include git operations, container setup, dependency updates, etc.
 
     Failures in pre-actions are captured but don't stop execution - they'll be
     caught in the subsequent validation phase.
 
-    Example:
+    Example (command):
         >>> action = PreAction(
         ...     command="git fetch upstream",
         ...     description="Fetch upstream changes"
@@ -52,17 +54,44 @@ class PreAction:
         >>> result = action.run({"REPO": "/path/to/repo"})
         >>> if result["success"]:
         ...     print("Fetch successful!")
+
+    Example (callable):
+        >>> async def setup_env(**kwargs):
+        ...     print("Setting up environment")
+        ...     # Do setup work
+        >>> action = PreAction(
+        ...     callable=setup_env,
+        ...     description="Setup environment"
+        ... )
+        >>> result = await action.arun({}, working_dir="/path/to/work")
     """
 
-    def __init__(self, command: str, description: str = "") -> None:
+    def __init__(
+        self,
+        command: str | None = None,
+        callable: Callable[..., Any] | None = None,
+        description: str = "",
+    ) -> None:
         """Initialize a pre-action.
 
         Args:
             command: Shell command to execute (supports ${VAR} substitution)
-            description: Human-readable description (defaults to command if empty)
+            callable: Async Python function to execute
+            description: Human-readable description (defaults to command/callable name if empty)
+
+        Raises:
+            ValueError: If neither or both command and callable are provided
         """
+        if command is None and callable is None:
+            raise ValueError("Either 'command' or 'callable' must be provided")
+        if command is not None and callable is not None:
+            raise ValueError("Cannot specify both 'command' and 'callable'")
+
         self.command = command
-        self.description = description or command
+        self.callable = callable
+        self.description = description or (
+            command if command else getattr(callable, "__name__", "callable")
+        )
 
     def run(self, env_vars: dict[str, str], working_dir: str | None = None) -> PreActionResult:
         """Run pre-action with variable substitution (sync wrapper).
@@ -91,40 +120,54 @@ class PreAction:
     async def arun(
         self, env_vars: dict[str, str], working_dir: str | None = None
     ) -> PreActionResult:
-        """Run pre-action asynchronously with variable substitution.
+        """Run pre-action asynchronously (command or callable).
 
         Async version of run() for use in async applications (e.g., Kubernetes operators).
-        Variables in the command are substituted using ${VAR_NAME} syntax.
-        The command is executed with a 600-second timeout.
+        For commands: Variables are substituted using ${VAR_NAME} syntax.
+        For callables: Executes with working_dir, config_dir, env_vars, state kwargs.
+        Execution has a 600-second timeout.
 
         Args:
-            env_vars: Dictionary of variables for substitution
+            env_vars: Dictionary of variables for substitution (command) or kwargs (callable)
             working_dir: Optional working directory for command execution.
                         If not provided, uses current process directory.
 
         Returns:
             PreActionResult with execution details
 
-        Example:
-            >>> action = PreAction("git merge upstream/${TAG}")
+        Example (command):
+            >>> action = PreAction(command="git merge upstream/${TAG}")
             >>> result = await action.arun({"TAG": "v1.35.0"}, working_dir="/path/to/repo")
             >>> # Command executed: "git merge upstream/v1.35.0" in /path/to/repo
-        """
-        # Substitute variables in command
-        expanded_command = self._substitute_vars(self.command, env_vars)
 
+        Example (callable):
+            >>> action = PreAction(callable=setup_env)
+            >>> result = await action.arun({}, working_dir="/path/to/repo")
+            >>> # Callable executed with working_dir="/path/to/repo"
+        """
         logger.info(f"Pre-action (async): {self.description}")
-        logger.info(f"Command (expanded): {expanded_command}")
         logger.info(f"Working directory: {working_dir}")
 
-        # Run command with timing
         start = time.time()
         try:
-            result = await run_command_async(
-                expanded_command,
-                timeout=600.0,  # 10 minute timeout
-                working_dir=working_dir,
-            )
+            if self.callable:
+                # Execute callable
+                logger.info("Executing callable")
+                result = await run_callable_async(
+                    self.callable,
+                    timeout=600.0,  # 10 minute timeout
+                    working_dir=working_dir,
+                    env_vars=env_vars,
+                )
+            else:
+                # Execute command
+                expanded_command = self._substitute_vars(self.command, env_vars)
+                logger.info(f"Command (expanded): {expanded_command}")
+                result = await run_command_async(
+                    expanded_command,
+                    timeout=600.0,  # 10 minute timeout
+                    working_dir=working_dir,
+                )
 
             logger.info(f"Pre-action exit code: {result['exit_code']}")
 

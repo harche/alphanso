@@ -4,7 +4,9 @@ This module defines the configuration structure for the entire framework,
 including pre-actions, validators, and convergence settings.
 """
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -13,21 +15,34 @@ from pydantic import BaseModel, Field, model_validator
 class PreActionConfig(BaseModel):
     """Configuration for a single pre-action.
 
-    Pre-actions are commands that run once before the convergence loop starts.
+    Pre-actions are commands or callables that run once before the convergence loop starts.
 
     Attributes:
-        command: Shell command to execute
+        command: Shell command to execute (mutually exclusive with callable)
+        callable: Async Python function to execute (mutually exclusive with command)
         description: Human-readable description of what this action does
     """
 
-    command: str = Field(..., min_length=1, description="Shell command to execute")
+    command: str | None = Field(default=None, min_length=1, description="Shell command to execute")
+    callable: Callable[..., Any] | None = Field(
+        default=None, description="Async Python function to execute"
+    )
     description: str = Field(default="", description="Description of the action")
 
     @model_validator(mode="after")
-    def default_description(self) -> "PreActionConfig":
-        """Use command as default description if not provided."""
+    def validate_command_or_callable(self) -> "PreActionConfig":
+        """Ensure exactly one of command or callable is provided, and set default description."""
+        if self.command is None and self.callable is None:
+            raise ValueError("Either 'command' or 'callable' must be provided")
+        if self.command is not None and self.callable is not None:
+            raise ValueError("Cannot specify both 'command' and 'callable'")
+
+        # Use command or callable name as default description if not provided
         if not self.description:
-            self.description = self.command
+            if self.command:
+                self.description = self.command
+            elif self.callable:
+                self.description = getattr(self.callable, "__name__", "callable")
         return self
 
 
@@ -39,20 +54,33 @@ class MainScriptConfig(BaseModel):
     the main script fails, to verify the environment is healthy before retrying.
 
     Attributes:
-        command: Shell command to execute
+        command: Shell command to execute (mutually exclusive with callable)
+        callable: Async Python function to execute (mutually exclusive with command)
         description: Human-readable description of what this script does
         timeout: Maximum execution time in seconds (default: 600)
     """
 
-    command: str = Field(..., min_length=1, description="Shell command to execute")
+    command: str | None = Field(default=None, min_length=1, description="Shell command to execute")
+    callable: Callable[..., Any] | None = Field(
+        default=None, description="Async Python function to execute"
+    )
     description: str = Field(default="", description="Description of the script")
     timeout: float = Field(default=600.0, ge=1.0, description="Timeout in seconds")
 
     @model_validator(mode="after")
-    def default_description(self) -> "MainScriptConfig":
-        """Use command as default description if not provided."""
+    def validate_command_or_callable(self) -> "MainScriptConfig":
+        """Ensure exactly one of command or callable is provided, and set default description."""
+        if self.command is None and self.callable is None:
+            raise ValueError("Either 'command' or 'callable' must be provided")
+        if self.command is not None and self.callable is not None:
+            raise ValueError("Cannot specify both 'command' and 'callable'")
+
+        # Use command or callable name as default description if not provided
         if not self.description:
-            self.description = self.command
+            if self.command:
+                self.description = self.command
+            elif self.callable:
+                self.description = getattr(self.callable, "__name__", "callable")
         return self
 
 
@@ -132,17 +160,23 @@ class ValidatorConfig(BaseModel):
     They are NOT tools for the AI agent.
 
     Attributes:
-        type: Validator type (command, git-conflict)
+        type: Validator type (command, git-conflict, test-suite, callable)
         name: Human-readable validator name
         timeout: Maximum execution time in seconds
-        command: Shell command (for type='command')
-        capture_lines: Number of output lines to capture (for type='command')
+        command: Shell command (for type='command', 'test-suite')
+        callable: Async Python function (for type='callable')
+        capture_lines: Number of output lines to capture (for command-based validators)
     """
 
-    type: str = Field(..., description="Validator type (command, git-conflict)")
+    type: str = Field(
+        ..., description="Validator type (command, git-conflict, test-suite, callable)"
+    )
     name: str = Field(..., description="Human-readable validator name")
     timeout: float = Field(default=600.0, ge=1.0, description="Timeout in seconds")
     command: str | None = Field(default=None, description="Shell command (for command validator)")
+    callable: Callable[..., Any] | None = Field(
+        default=None, description="Async Python function (for callable validator)"
+    )
     capture_lines: int = Field(
         default=100, ge=1, description="Lines to capture (for command validator)"
     )

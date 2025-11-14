@@ -10,8 +10,10 @@ from alphanso.actions.pre_actions import PreAction, PreActionResult
 from alphanso.agent.client import ConvergenceAgent
 from alphanso.agent.prompts import build_fix_prompt, build_user_message
 from alphanso.graph.state import ConvergenceState
+from alphanso.utils.callable import run_callable_async
 from alphanso.utils.subprocess import run_command_async
 from alphanso.validators import (
+    CallableValidator,
     CommandValidator,
     GitConflictValidator,
     TestSuiteValidator,
@@ -40,11 +42,12 @@ def create_validators(
     Example:
         >>> config = [
         ...     {"type": "command", "name": "Build", "command": "make"},
-        ...     {"type": "git-conflict", "name": "Conflicts"}
+        ...     {"type": "git-conflict", "name": "Conflicts"},
+        ...     {"type": "callable", "name": "Custom", "callable": my_func}
         ... ]
         >>> validators = create_validators(config, "/path/to/repo")
         >>> len(validators)
-        2
+        3
     """
     validators: list[Validator] = []
 
@@ -79,10 +82,19 @@ def create_validators(
                     working_directory=working_dir,
                 )
             )
+        elif validator_type == "callable":
+            validators.append(
+                CallableValidator(
+                    name=config.get("name", "Callable Validator"),
+                    callable=config.get("callable"),
+                    timeout=config.get("timeout", 600.0),
+                    working_dir=working_dir,
+                )
+            )
         else:
             raise ValueError(
                 f"Unknown validator type: {validator_type}. "
-                f"Supported types: command, git-conflict, test-suite"
+                f"Supported types: command, git-conflict, test-suite, callable"
             )
 
     return validators
@@ -219,11 +231,11 @@ async def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
 
 
 async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
-    """Run the main script asynchronously.
+    """Run the main script (command or callable) asynchronously.
 
     The main script is the primary goal of the workflow. It will be retried
     until it succeeds or max_attempts is reached. This node executes the
-    script and captures its result.
+    script (either a shell command or Python callable) and captures its result.
 
     Args:
         state: Current convergence state
@@ -231,7 +243,7 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     Returns:
         Updated state with main_script_result and main_script_succeeded flag
 
-    Example:
+    Example (command):
         >>> state = {
         ...     "main_script_config": {
         ...         "command": "./ocp-rebase.sh --k8s-tag=v1.35.0",
@@ -243,6 +255,17 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
         >>> new_state = await run_main_script_node(state)
         >>> new_state["main_script_succeeded"]
         True
+
+    Example (callable):
+        >>> state = {
+        ...     "main_script_config": {
+        ...         "callable": my_async_function,
+        ...         "description": "Run main task",
+        ...         "timeout": 600
+        ...     },
+        ...     "working_directory": "/path/to/repo"
+        ... }
+        >>> new_state = await run_main_script_node(state)
     """
     logger.info("=" * 70)
     logger.info("NODE: run_main_script (async)")
@@ -254,18 +277,28 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     attempt = state.get("attempt", 0)
 
     command = script_config.get("command", "")
-    description = script_config.get("description", command)
+    callable_func = script_config.get("callable")
+    description = script_config.get("description", command if command else "callable")
     timeout = script_config.get("timeout", 600.0)
 
     logger.info(f"Running main script (attempt {attempt + 1}/{state.get('max_attempts', 10)})...")
     logger.info(f"Description: {description}")
-    logger.info(f"Command: {command}")
+    if callable_func:
+        logger.info(f"Type: Python callable ({getattr(callable_func, '__name__', 'unknown')})")
+    else:
+        logger.info(f"Command: {command}")
     logger.info(f"Timeout: {timeout}s")
     logger.info(f"Working directory: {working_dir}")
     logger.info("")
 
-    # Run the script with timing using async subprocess
-    result = await run_command_async(command, timeout=timeout, working_dir=working_dir)
+    # Run the script (command or callable) with timing
+    if callable_func:
+        result = await run_callable_async(
+            callable_func, timeout=timeout, working_dir=working_dir, state=state
+        )
+    else:
+        result = await run_command_async(command, timeout=timeout, working_dir=working_dir)
+
     duration = result["duration"]
     success = result["success"]
 
@@ -287,7 +320,7 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     from alphanso.graph.state import MainScriptResult
 
     script_result: MainScriptResult = {
-        "command": command,
+        "command": command if command else f"callable:{getattr(callable_func, '__name__', 'unknown')}",
         "success": success,
         "output": result["output"][-2000:],  # Last 2000 chars
         "stderr": result["stderr"][-2000:],

@@ -10,12 +10,14 @@ This is a critical separation:
 """
 
 from alphanso.validators.base import Validator
+from alphanso.validators.callable import CallableValidator
 from alphanso.validators.command import CommandValidator
 from alphanso.validators.git import GitConflictValidator
 from alphanso.validators.test_suite import TestSuiteValidator
 
 __all__ = [
     "Validator",
+    "CallableValidator",
     "CommandValidator",
     "GitConflictValidator",
     "TestSuiteValidator",
