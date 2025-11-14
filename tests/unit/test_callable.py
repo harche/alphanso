@@ -398,9 +398,7 @@ class TestPreActionsNodeIntegration:
 
         state = {
             "pre_actions_completed": False,
-            "pre_actions_config": [
-                {"callable": failing_action, "description": "Failing action"}
-            ],
+            "pre_actions_config": [{"callable": failing_action, "description": "Failing action"}],
             "config_directory": None,
             "working_directory": "/test",
             "env_vars": {},
