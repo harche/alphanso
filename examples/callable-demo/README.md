@@ -49,6 +49,58 @@ cd examples/callable-demo
 python demo.py
 ```
 
+### Example Output
+
+```
+======================================================================
+CALLABLE DEMO - Using Python Functions with Alphanso
+======================================================================
+
++  0.5s  alphanso.api               INFO      ======================================================================
++  0.5s  alphanso.api               INFO      Starting convergence (async): Callable Demo
++  0.5s  alphanso.api               INFO      ======================================================================
++  0.5s  alphanso.api               INFO      Working directory: /home/harshal/go/src/github.com/harche/alphanso/examples/callable-demo
++  0.5s  alphanso.api               INFO      Max attempts: 5
++  0.5s  alphanso.api               INFO      Pre-actions: 2
++  0.5s  alphanso.api               INFO      Validators: 2
++  0.5s  alphanso.graph.nodes       INFO      ======================================================================
++  0.5s  alphanso.graph.nodes       INFO      NODE: pre_actions
++  0.5s  alphanso.graph.nodes       INFO      ======================================================================
++  0.5s  alphanso.graph.nodes       INFO      Running pre-actions to set up environment...
++  0.5s  alphanso.graph.nodes       INFO      [1/2] Setup environment
++  0.5s  alphanso.actions.pre_actions  INFO      Pre-action (async): Setup environment
++  0.5s  alphanso.utils.callable    INFO      Executing callable: setup_environment
++  1.3s  alphanso.utils.callable    INFO      Callable setup_environment completed successfully in 0.80s
++  1.3s  alphanso.graph.nodes       INFO           ✅ Success
++  1.3s  alphanso.graph.nodes       INFO           │ 🔧 Setting up environment in None
++  1.3s  alphanso.graph.nodes       INFO      [2/2] Check dependencies
++  1.3s  alphanso.actions.pre_actions  INFO      Pre-action (async): Check dependencies
++  1.3s  alphanso.utils.callable    INFO      Executing callable: check_dependencies
++  1.6s  alphanso.utils.callable    INFO      Callable check_dependencies completed successfully in 0.30s
++  1.6s  alphanso.graph.nodes       INFO           ✅ Success
++  1.6s  alphanso.graph.nodes       INFO           │ 📦 Checking dependencies...
++  1.6s  alphanso.graph.nodes       INFO      ======================================================================
++  1.6s  alphanso.graph.nodes       INFO      NODE: run_main_script (async)
++  1.6s  alphanso.graph.nodes       INFO      ======================================================================
++  1.6s  alphanso.graph.nodes       INFO      Running main script (attempt 1/5)...
++  1.6s  alphanso.graph.nodes       INFO      Description: Process data
++  1.6s  alphanso.graph.nodes       INFO      Type: Python callable (simple_task)
++  1.6s  alphanso.graph.nodes       INFO      Timeout: 30.0s
++  1.6s  alphanso.utils.callable    INFO      Executing callable: simple_task
++  2.1s  alphanso.utils.callable    INFO      Callable simple_task completed successfully in 0.50s
++  2.1s  alphanso.graph.nodes       INFO      ✅ Main script SUCCEEDED (0.50s)
++  2.1s  alphanso.graph.nodes       INFO         │ 🎯 Running simple task...
++  2.1s  alphanso.api               INFO      ======================================================================
++  2.1s  alphanso.api               INFO      ✅ Convergence completed successfully - main script succeeded
++  2.1s  alphanso.api               INFO      ======================================================================
+
+======================================================================
+RESULT
+======================================================================
+Success: True
+Attempts: 0
+```
+
 ## How It Works
 
 ### Pre-Actions (Callables)
