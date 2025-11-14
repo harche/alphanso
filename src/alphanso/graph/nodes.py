@@ -178,7 +178,8 @@ async def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
     all_succeeded = True
     for idx, action_config in enumerate(state.get("pre_actions_config", []), 1):
         pre_action = PreAction(
-            command=action_config.get("command", ""),
+            command=action_config.get("command"),
+            callable=action_config.get("callable"),
             description=action_config.get("description", ""),
         )
 
