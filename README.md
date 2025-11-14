@@ -186,21 +186,6 @@ result = asyncio.run(main())
 #     return result
 ```
 
-**API Reference:**
-
-Both `run_convergence()` (sync) and `arun_convergence()` (async) accept:
-- **Parameters**:
-  - `config`: ConvergenceConfig object
-  - `system_prompt_content`: System prompt for AI agent (required)
-  - `env_vars`: Optional environment variables
-  - `working_directory`: Optional working directory
-  - `log_level`: Logging level (default: `logging.INFO`)
-- **Returns**: `ConvergenceResult` with:
-  - `success`: bool - Overall success status
-  - `pre_action_results`: list - Results from each pre-action
-  - `config_name`: str - Name from the config
-  - `working_directory`: str - Working directory used
-
 ### Additional Examples
 
 - **Hello World**: [`examples/hello-world/`](examples/hello-world/) - Git merge conflict resolution with AI agent
