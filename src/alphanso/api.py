@@ -125,13 +125,18 @@ async def arun_convergence(
     initial_state: ConvergenceState = {
         "pre_actions_completed": False,
         "pre_actions_config": [
-            {"command": action.command, "description": action.description}
+            {
+                "command": action.command,
+                "callable": action.callable,
+                "description": action.description,
+            }
             for action in config.pre_actions
         ],
         "pre_action_results": [],
         "main_script_config": (
             {
                 "command": config.main_script.command,
+                "callable": config.main_script.callable,
                 "description": config.main_script.description,
                 "timeout": config.main_script.timeout,
             }
@@ -144,6 +149,7 @@ async def arun_convergence(
                 "type": validator.type,
                 "name": validator.name,
                 "command": validator.command,
+                "callable": validator.callable,
                 "timeout": validator.timeout,
                 "capture_lines": validator.capture_lines,
             }

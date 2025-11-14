@@ -187,11 +187,77 @@ result = asyncio.run(main())
 #     return result
 ```
 
+#### Using Python Callables (Function-Based Workflows)
+
+Instead of shell commands, you can use Python async functions for pre-actions, main scripts, and validators:
+
+```python
+import asyncio
+from alphanso.api import arun_convergence
+from alphanso.config.schema import (
+    ConvergenceConfig,
+    PreActionConfig,
+    MainScriptConfig,
+    ValidatorConfig,
+)
+
+# Define async functions for your workflow
+async def setup_environment(working_dir: str = None, **kwargs):
+    """Pre-action: Setup before main task."""
+    print(f"Setting up in {working_dir}")
+    # Python setup code here
+
+async def process_data(state: dict = None, **kwargs):
+    """Main script: The task to accomplish."""
+    attempt = state.get('attempt', 0)
+    print(f"Processing data (attempt {attempt})")
+
+    # Main task code here
+    if something_wrong:
+        raise Exception("Task failed")  # Will be retried
+
+    return "Success"
+
+async def validate_output(**kwargs):
+    """Validator: Check conditions."""
+    if not output_valid:
+        raise AssertionError("Validation failed")
+    # Success if no exception raised
+
+# Create config with callables
+config = ConvergenceConfig(
+    name="Callable Workflow",
+    max_attempts=5,
+    pre_actions=[
+        PreActionConfig(callable=setup_environment, description="Setup"),
+    ],
+    main_script=MainScriptConfig(
+        callable=process_data,
+        description="Process data",
+        timeout=60.0,
+    ),
+    validators=[
+        ValidatorConfig(
+            type="callable",
+            name="Output Check",
+            callable=validate_output,
+            timeout=10.0,
+        ),
+    ],
+)
+
+# Run convergence
+result = await arun_convergence(config=config)
+```
+
+See [`examples/callable-demo/`](examples/callable-demo/) for a complete example.
+
 ### Additional Examples
 
 - **Hello World**: [`examples/hello-world/`](examples/hello-world/) - Git merge conflict resolution with AI agent
 - **OpenShift Rebase**: [`examples/openshift-rebase/`](examples/openshift-rebase/) - Complex Kubernetes fork rebasing workflow
 - **Dependency Upgrade**: [`examples/dependency-upgrade/`](examples/dependency-upgrade/) - Automated dependency updates
+- **Callable Demo**: [`examples/callable-demo/`](examples/callable-demo/) - Using Python functions instead of shell commands
 
 ## Security
 
