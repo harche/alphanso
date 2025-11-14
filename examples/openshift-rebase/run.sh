@@ -10,5 +10,4 @@ PROJECT_DIR="${SCRIPT_DIR}/kubernetes"
 cd "${SCRIPT_DIR}"
 
 
-uv run alphanso run --config config.yaml 
-
+uv run alphanso run --config config.yaml

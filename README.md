@@ -324,4 +324,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contributing
 
 Contributions are welcome. Please submit pull requests or open issues for bugs and feature requests.
-

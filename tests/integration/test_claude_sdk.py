@@ -138,10 +138,7 @@ Please investigate using SDK tools and identify the issue.
             "Check the current git status using the Bash tool."
         )
 
-        user_message = (
-            "Please use the Bash tool to run 'git status' "
-            "and report what you find."
-        )
+        user_message = "Please use the Bash tool to run 'git status' " "and report what you find."
 
         result = await agent.invoke(system_prompt, user_message)
 

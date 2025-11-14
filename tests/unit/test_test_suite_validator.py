@@ -42,9 +42,7 @@ class TestValidate:
         """Returns success ValidationResult when tests pass."""
         # Create mock process
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(
-            return_value=(b"All tests passed\n", b"")
-        )
+        mock_process.communicate = AsyncMock(return_value=(b"All tests passed\n", b""))
         mock_process.returncode = 0
         mock_subprocess.return_value = mock_process
 
@@ -125,15 +123,11 @@ class TestValidate:
 
         # Create mock process
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(
-            return_value=(long_output.encode(), b"")
-        )
+        mock_process.communicate = AsyncMock(return_value=(long_output.encode(), b""))
         mock_process.returncode = 0
         mock_subprocess.return_value = mock_process
 
-        validator = TestSuiteValidator(
-            name="Tests", command="make test", capture_lines=50
-        )
+        validator = TestSuiteValidator(name="Tests", command="make test", capture_lines=50)
         result = validator.validate()
 
         # Should only have last 50 lines
@@ -149,15 +143,11 @@ class TestValidate:
 
         # Create mock process
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(
-            return_value=(b"", long_stderr.encode())
-        )
+        mock_process.communicate = AsyncMock(return_value=(b"", long_stderr.encode()))
         mock_process.returncode = 1
         mock_subprocess.return_value = mock_process
 
-        validator = TestSuiteValidator(
-            name="Tests", command="make test", capture_lines=50
-        )
+        validator = TestSuiteValidator(name="Tests", command="make test", capture_lines=50)
         result = validator.validate()
 
         # stderr should be full, not truncated
@@ -258,9 +248,7 @@ class TestAnyCommand:
         mock_process.returncode = 0
         mock_subprocess.return_value = mock_process
 
-        validator = TestSuiteValidator(
-            name="Ruby Tests", command="bundle exec rspec"
-        )
+        validator = TestSuiteValidator(name="Ruby Tests", command="bundle exec rspec")
         result = validator.validate()
 
         assert result["success"]

@@ -4,7 +4,6 @@ This module provides functions to create and compile the LangGraph state graph
 for the convergence workflow.
 """
 
-
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -96,8 +95,8 @@ def create_convergence_graph() -> ConvergenceGraph:
     """
     # Create state graph with ConvergenceState schema
     # Explicit annotation needed for mypy to verify return type matches ConvergenceGraph
-    graph: StateGraph[ConvergenceState, None, ConvergenceState, ConvergenceState] = (
-        StateGraph(ConvergenceState)
+    graph: StateGraph[ConvergenceState, None, ConvergenceState, ConvergenceState] = StateGraph(
+        ConvergenceState
     )
 
     # Add all nodes

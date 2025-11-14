@@ -109,4 +109,3 @@ Remember to:
 2. For complex code conflicts, use git blame/log and gh commands to understand context
 3. Resolve all conflicts carefully
 4. Stage resolved files with 'git add <file>'
-

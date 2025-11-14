@@ -35,9 +35,7 @@ retry_strategy:
   max_tracked_failures: 10
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -75,17 +73,13 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
         try:
             config = ConvergenceConfig.from_yaml(config_path)
-            result = run_convergence(
-                config=config, env_vars={"TEST_VAR": "hello_world"}
-            )
+            result = run_convergence(config=config, env_vars={"TEST_VAR": "hello_world"})
 
             assert result["success"] is True
             assert "hello_world" in result["pre_action_results"][0]["output"]
@@ -111,9 +105,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -148,9 +140,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -187,9 +177,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -212,9 +200,7 @@ retry_strategy:
 
     def test_run_convergence_with_invalid_yaml(self) -> None:
         """Test loading config with invalid YAML."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: content: [")
             config_path = f.name
 
@@ -231,9 +217,7 @@ name: ""
 max_attempts: -1
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -266,9 +250,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -303,9 +285,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -313,8 +293,7 @@ retry_strategy:
             config = ConvergenceConfig.from_yaml(config_path)
             # Pass the working directory explicitly (simulating what CLI does)
             result = run_convergence(
-                config=config,
-                working_directory=Path(config_path).parent.absolute()
+                config=config, working_directory=Path(config_path).parent.absolute()
             )
 
             # Working directory should be what we passed
@@ -331,11 +310,13 @@ class TestRecursionLimit:
         """Test that recursion_limit is calculated as max_attempts * 6 + 10."""
         # Setup mock graph
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "pre_action_results": [],
-            "main_script_succeeded": True,
-            "working_directory": ".",
-        })
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "pre_action_results": [],
+                "main_script_succeeded": True,
+                "working_directory": ".",
+            }
+        )
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -353,9 +334,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -378,11 +357,13 @@ retry_strategy:
     def test_recursion_limit_with_max_attempts_1(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with max_attempts=1 (edge case)."""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "pre_action_results": [],
-            "main_script_succeeded": True,
-            "working_directory": ".",
-        })
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "pre_action_results": [],
+                "main_script_succeeded": True,
+                "working_directory": ".",
+            }
+        )
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -400,9 +381,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -421,11 +400,13 @@ retry_strategy:
     def test_recursion_limit_with_max_attempts_100(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with max_attempts=100."""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "pre_action_results": [],
-            "main_script_succeeded": True,
-            "working_directory": ".",
-        })
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "pre_action_results": [],
+                "main_script_succeeded": True,
+                "working_directory": ".",
+            }
+        )
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -443,9 +424,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -464,11 +443,13 @@ retry_strategy:
     def test_recursion_limit_parameter_passed_to_invoke(self, mock_create_graph) -> None:
         """Test that recursion_limit is actually passed in the config dict to graph.ainvoke()."""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "pre_action_results": [],
-            "main_script_succeeded": True,
-            "working_directory": ".",
-        })
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "pre_action_results": [],
+                "main_script_succeeded": True,
+                "working_directory": ".",
+            }
+        )
         mock_create_graph.return_value = mock_graph
 
         config_content = """
@@ -486,9 +467,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -520,19 +499,21 @@ retry_strategy:
     def test_recursion_limit_with_various_max_attempts(self, mock_create_graph) -> None:
         """Test recursion_limit calculation with various max_attempts values."""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "pre_action_results": [],
-            "main_script_succeeded": True,
-            "working_directory": ".",
-        })
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "pre_action_results": [],
+                "main_script_succeeded": True,
+                "working_directory": ".",
+            }
+        )
         mock_create_graph.return_value = mock_graph
 
         test_cases = [
-            (1, 16),      # 1 * 6 + 10 = 16
-            (5, 40),      # 5 * 6 + 10 = 40
-            (10, 70),     # 10 * 6 + 10 = 70
-            (50, 310),    # 50 * 6 + 10 = 310
-            (100, 610),   # 100 * 6 + 10 = 610
+            (1, 16),  # 1 * 6 + 10 = 16
+            (5, 40),  # 5 * 6 + 10 = 40
+            (10, 70),  # 10 * 6 + 10 = 70
+            (50, 310),  # 50 * 6 + 10 = 310
+            (100, 610),  # 100 * 6 + 10 = 610
             (200, 1210),  # 200 * 6 + 10 = 1210
         ]
 
@@ -552,9 +533,7 @@ retry_strategy:
   type: "hybrid"
 """
 
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yaml", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
                 f.write(config_content)
                 config_path = f.name
 

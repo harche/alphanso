@@ -369,4 +369,3 @@ This example can be adapted for:
 **Setup fails**:
 - Requires Python 3.11+ with venv module
 - Check: `python3 --version`
-

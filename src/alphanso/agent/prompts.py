@@ -7,9 +7,7 @@ that explain validation failures to Claude and request fixes.
 from alphanso.graph.state import ConvergenceState
 
 
-def build_fix_prompt(
-    state: ConvergenceState, custom_prompt: str | None = None
-) -> str:
+def build_fix_prompt(state: ConvergenceState, custom_prompt: str | None = None) -> str:
     """Build system prompt for AI fix node.
 
     Optionally starts with custom prompt defining agent's role/task,
@@ -83,14 +81,14 @@ def build_user_message(state: ConvergenceState) -> str:
             message += f"Exit Code: {result.get('exit_code', 'N/A')}\n"
 
             # Include the command that was executed
-            command = result.get('metadata', {}).get('command', '')
+            command = result.get("metadata", {}).get("command", "")
             if command:
                 message += f"Command: `{command}`\n"
 
             message += "\n"
 
             # Include stdout (truncated to last N lines)
-            output = result.get('output', '')
+            output = result.get("output", "")
             if output:
                 message += f"Output (last {output.count(chr(10))} lines):\n```\n{output}\n```\n\n"
 
@@ -107,11 +105,11 @@ def build_user_message(state: ConvergenceState) -> str:
             message = "## Main Script Failed\n\n"
             message += f"**Description:** {state.get('main_script_config', {}).get('description', 'Main script')}\n"
 
-            command = main_script_result.get('command', '')
+            command = main_script_result.get("command", "")
             if command:
                 message += f"**Command:** `{command}`\n"
 
-            exit_code = main_script_result.get('exit_code', 'N/A')
+            exit_code = main_script_result.get("exit_code", "N/A")
             message += f"**Exit Code:** {exit_code}\n\n"
 
             # Include stderr (usually has the important errors like merge conflicts)
@@ -120,7 +118,7 @@ def build_user_message(state: ConvergenceState) -> str:
                 message += f"**Error Output:**\n```\n{stderr}\n```\n\n"
 
             # Include stdout if available
-            output = main_script_result.get('output', '')
+            output = main_script_result.get("output", "")
             if output:
                 message += f"**Standard Output:**\n```\n{output}\n```\n\n"
 

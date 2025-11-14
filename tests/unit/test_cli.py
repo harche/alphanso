@@ -73,9 +73,7 @@ retry_strategy:
 """
 
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -111,9 +109,7 @@ retry_strategy:
 """
 
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -143,16 +139,12 @@ pre_actions:
 """
 
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
         try:
-            result = runner.invoke(
-                cli, ["run", "--config", config_path, "--var", "INVALID_FORMAT"]
-            )
+            result = runner.invoke(cli, ["run", "--config", config_path, "--var", "INVALID_FORMAT"])
 
             assert result.exit_code != 0
             assert "Invalid variable format" in result.output
@@ -179,9 +171,7 @@ retry_strategy:
 """
 
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 
@@ -201,9 +191,7 @@ invalid: yaml: content: [
 """
 
         runner = CliRunner()
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = f.name
 

@@ -116,9 +116,7 @@ class Validator(ABC):
             return result
         except Exception as e:
             # Convert exception to failed validation result
-            logger.debug(
-                f"Validator '{self.name}' raised exception (async): {e}", exc_info=True
-            )
+            logger.debug(f"Validator '{self.name}' raised exception (async): {e}", exc_info=True)
             return ValidationResult(
                 validator_name=self.name,
                 success=False,

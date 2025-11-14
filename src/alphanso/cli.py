@@ -79,7 +79,9 @@ def run(
     if quiet:
         log_level = logging.ERROR  # -q: errors only
     elif verbose == 0:
-        log_level = logging.INFO  # Default: show all important info (validator results, AI actions, progress)
+        log_level = (
+            logging.INFO
+        )  # Default: show all important info (validator results, AI actions, progress)
     elif verbose == 1:
         log_level = logging.DEBUG  # -v: add workflow tracking, state transitions, detailed tool I/O
     else:  # verbose >= 2

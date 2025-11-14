@@ -168,7 +168,9 @@ async def arun_convergence(
 
     # Calculate recursion limit based on max_attempts
     recursion_limit = config.max_attempts * 6 + 10
-    logger.info(f"Setting recursion limit to {recursion_limit} (max_attempts={config.max_attempts})")
+    logger.info(
+        f"Setting recursion limit to {recursion_limit} (max_attempts={config.max_attempts})"
+    )
 
     logger.info("Executing convergence loop (async)...")
     # Use ainvoke for async execution

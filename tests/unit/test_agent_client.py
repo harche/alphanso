@@ -77,7 +77,7 @@ class TestConvergenceAgent:
             agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
             # Mock the async invoke method
-            with patch.object(agent, 'ainvoke', new_callable=AsyncMock, return_value=mock_response):
+            with patch.object(agent, "ainvoke", new_callable=AsyncMock, return_value=mock_response):
                 response = agent.invoke(
                     system_prompt="You are a test agent",
                     user_message="Fix the build",
@@ -96,7 +96,9 @@ class TestConvergenceAgent:
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
 
-            with patch.object(agent, 'ainvoke', new_callable=AsyncMock, return_value=mock_response) as mock_async:
+            with patch.object(
+                agent, "ainvoke", new_callable=AsyncMock, return_value=mock_response
+            ) as mock_async:
                 agent.invoke(
                     system_prompt="Test system prompt",
                     user_message="Test user message",
@@ -116,7 +118,7 @@ class TestConvergenceAgent:
                 TextBlock(text="I'll help you fix this issue"),
                 ToolUseBlock(id="tool1", name="Bash", input={"command": "ls"}),
             ],
-            model="claude-sonnet-4-5@20250929"
+            model="claude-sonnet-4-5@20250929",
         )
 
         # Mock async iterator
@@ -159,14 +161,14 @@ class TestConvergenceAgent:
     @pytest.mark.asyncio
     async def test_ainvoke_handles_thinking_blocks(self) -> None:
         """Test ainvoke processes thinking blocks from Claude."""
-        from claude_agent_sdk import AssistantMessage, ThinkingBlock, TextBlock
+        from claude_agent_sdk import AssistantMessage, TextBlock, ThinkingBlock
 
         mock_message = AssistantMessage(
             content=[
                 ThinkingBlock(thinking="Let me analyze the error...", signature="test"),
                 TextBlock(text="The issue is in the build configuration"),
             ],
-            model="claude-sonnet-4-5@20250929"
+            model="claude-sonnet-4-5@20250929",
         )
 
         async def async_iterator():
@@ -194,16 +196,16 @@ class TestConvergenceAgent:
     @pytest.mark.asyncio
     async def test_ainvoke_handles_tool_results(self) -> None:
         """Test ainvoke processes tool result blocks."""
-        from claude_agent_sdk import AssistantMessage, ToolResultBlock, TextBlock
+        from claude_agent_sdk import AssistantMessage, TextBlock, ToolResultBlock
 
         mock_message = AssistantMessage(
             content=[
                 ToolResultBlock(
                     tool_use_id="tool1",
-                    content=[TextBlock(text="Command output: file1.txt file2.txt")]
+                    content=[TextBlock(text="Command output: file1.txt file2.txt")],
                 ),
             ],
-            model="claude-sonnet-4-5@20250929"
+            model="claude-sonnet-4-5@20250929",
         )
 
         async def async_iterator():
@@ -234,8 +236,7 @@ class TestConvergenceAgent:
         from claude_agent_sdk import AssistantMessage, TextBlock
 
         mock_message = AssistantMessage(
-            content=[TextBlock(text="Done")],
-            model="claude-sonnet-4-5@20250929"
+            content=[TextBlock(text="Done")], model="claude-sonnet-4-5@20250929"
         )
 
         async def async_iterator():
@@ -249,11 +250,12 @@ class TestConvergenceAgent:
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             agent = ConvergenceAgent(
-                model="claude-sonnet-4-5@20250929",
-                working_directory="/test/path"
+                model="claude-sonnet-4-5@20250929", working_directory="/test/path"
             )
 
-            with patch("alphanso.agent.client.ClaudeSDKClient", return_value=mock_client) as mock_sdk:
+            with patch(
+                "alphanso.agent.client.ClaudeSDKClient", return_value=mock_client
+            ) as mock_sdk:
                 await agent.ainvoke("System", "User")
 
                 # Verify SDK was initialized with correct options

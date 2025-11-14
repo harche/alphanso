@@ -61,9 +61,7 @@ class TestGraphNodes:
         """Test pre_actions_node returns partial state updates."""
         state: ConvergenceState = {
             "pre_actions_completed": False,
-            "pre_actions_config": [
-                {"command": "echo 'test'", "description": "Test command"}
-            ],
+            "pre_actions_config": [{"command": "echo 'test'", "description": "Test command"}],
             "env_vars": {},
             "working_directory": ".",
         }
@@ -182,9 +180,7 @@ class TestGraphBuilder:
         graph = create_convergence_graph()
 
         initial_state = create_test_state(
-            pre_actions_config=[
-                {"command": "echo 'flow test'", "description": "Flow test"}
-            ],
+            pre_actions_config=[{"command": "echo 'flow test'", "description": "Flow test"}],
         )
 
         final_state = await graph.ainvoke(initial_state)
@@ -261,9 +257,7 @@ class TestGraphStateImmutability:
         graph = create_convergence_graph()
 
         initial_state = create_test_state(
-            pre_actions_config=[
-                {"command": "echo 'test'", "description": "Test"}
-            ],
+            pre_actions_config=[{"command": "echo 'test'", "description": "Test"}],
         )
 
         # Store original values
@@ -535,9 +529,7 @@ class TestGraphRetryLoop:
         graph = create_convergence_graph()
 
         initial_state = create_test_state(
-            pre_actions_config=[
-                {"command": "echo 'Setup complete'", "description": "Setup"}
-            ],
+            pre_actions_config=[{"command": "echo 'Setup complete'", "description": "Setup"}],
             max_attempts=3,
             main_script_config={
                 "command": "false",  # Main script always fails
@@ -607,43 +599,46 @@ class TestGraphRetryLoop:
                 }
 
         # Patch both run_main_script_node and ai_fix_node
-        with patch("alphanso.graph.builder.run_main_script_node", main_script_that_succeeds_on_retry), patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node):
-                graph = create_convergence_graph()
+        with (
+            patch(
+                "alphanso.graph.builder.run_main_script_node", main_script_that_succeeds_on_retry
+            ),
+            patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node),
+        ):
+            graph = create_convergence_graph()
 
-                initial_state = create_test_state(
-                    pre_actions_config=[
-                        {"command": "echo 'Setup'", "description": "Setup"}
-                    ],
-                    max_attempts=10,
-                    main_script_config={
-                        "command": "test script",
-                        "description": "Test script",
+            initial_state = create_test_state(
+                pre_actions_config=[{"command": "echo 'Setup'", "description": "Setup"}],
+                max_attempts=10,
+                main_script_config={
+                    "command": "test script",
+                    "description": "Test script",
+                    "timeout": 10,
+                },
+                validators_config=[
+                    {
+                        "type": "command",
+                        "name": "Build",
+                        "command": "echo 'Build passed'",  # Always passes
                         "timeout": 10,
-                    },
-                    validators_config=[
-                        {
-                            "type": "command",
-                            "name": "Build",
-                            "command": "echo 'Build passed'",  # Always passes
-                            "timeout": 10,
-                        }
-                    ],
-                )
+                    }
+                ],
+            )
 
-                final_state = await graph.ainvoke(initial_state)
+            final_state = await graph.ainvoke(initial_state)
 
-                # Main script should have run exactly 2 times
-                assert attempt_counter["count"] == 2
+            # Main script should have run exactly 2 times
+            assert attempt_counter["count"] == 2
 
-                # First attempt: main script failed, validators passed
-                # Second attempt: main script succeeded
-                assert final_state["main_script_succeeded"] is True
+            # First attempt: main script failed, validators passed
+            # Second attempt: main script succeeded
+            assert final_state["main_script_succeeded"] is True
 
-                # Should have incremented attempt once (from 0 to 1)
-                assert final_state["attempt"] == 1
+            # Should have incremented attempt once (from 0 to 1)
+            assert final_state["attempt"] == 1
 
-                # Validators passed, so no failed validators
-                assert len(final_state.get("failed_validators", [])) == 0
+            # Validators passed, so no failed validators
+            assert len(final_state.get("failed_validators", [])) == 0
 
     @patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node)
     @pytest.mark.asyncio
@@ -675,51 +670,60 @@ class TestGraphRetryLoop:
                 "main_script_succeeded": False,
             }
 
-        with patch("alphanso.graph.builder.ai_fix_node", tracking_ai_fix_node), patch("alphanso.graph.builder.run_main_script_node", tracking_main_script_node):
-                graph = create_convergence_graph()
+        with (
+            patch("alphanso.graph.builder.ai_fix_node", tracking_ai_fix_node),
+            patch("alphanso.graph.builder.run_main_script_node", tracking_main_script_node),
+        ):
+            graph = create_convergence_graph()
 
-                initial_state = create_test_state(
-                    pre_actions_config=[],
-                    max_attempts=3,
-                    main_script_config={
-                        "command": "test script",
-                        "description": "Test script",
+            initial_state = create_test_state(
+                pre_actions_config=[],
+                max_attempts=3,
+                main_script_config={
+                    "command": "test script",
+                    "description": "Test script",
+                    "timeout": 10,
+                },
+                validators_config=[
+                    {
+                        "type": "command",
+                        "name": "Build",
+                        "command": "false",  # Always fails
                         "timeout": 10,
-                    },
-                    validators_config=[
-                        {
-                            "type": "command",
-                            "name": "Build",
-                            "command": "false",  # Always fails
-                            "timeout": 10,
-                        }
-                    ],
-                )
+                    }
+                ],
+            )
 
-                final_state = await graph.ainvoke(initial_state)
+            final_state = await graph.ainvoke(initial_state)
 
-                # Verify the call sequence shows AI fix is called after validator failures
-                # Expected sequence:
-                # 1. main_script (fails)
-                # 2. ai_fix (first attempt to fix)
-                # 3. validators run and fail
-                # 4. ai_fix (second attempt to fix - refinement)
-                # 5. validators run and fail
-                # 6. ai_fix (third attempt to fix - refinement)
-                # 7. max attempts reached → END
+            # Verify the call sequence shows AI fix is called after validator failures
+            # Expected sequence:
+            # 1. main_script (fails)
+            # 2. ai_fix (first attempt to fix)
+            # 3. validators run and fail
+            # 4. ai_fix (second attempt to fix - refinement)
+            # 5. validators run and fail
+            # 6. ai_fix (third attempt to fix - refinement)
+            # 7. max attempts reached → END
 
-                # Should have 3 AI fix calls (one per attempt)
-                ai_fix_count = call_sequence.count("ai_fix")
-                assert ai_fix_count == 3, f"Expected 3 AI fix calls, got {ai_fix_count}. Sequence: {call_sequence}"
+            # Should have 3 AI fix calls (one per attempt)
+            ai_fix_count = call_sequence.count("ai_fix")
+            assert (
+                ai_fix_count == 3
+            ), f"Expected 3 AI fix calls, got {ai_fix_count}. Sequence: {call_sequence}"
 
-                # Should have exactly 1 main script call (initial failure that triggers the loop)
-                main_script_count = call_sequence.count("main_script")
-                assert main_script_count == 1, f"Expected 1 main script call, got {main_script_count}. Sequence: {call_sequence}"
+            # Should have exactly 1 main script call (initial failure that triggers the loop)
+            main_script_count = call_sequence.count("main_script")
+            assert (
+                main_script_count == 1
+            ), f"Expected 1 main script call, got {main_script_count}. Sequence: {call_sequence}"
 
-                # Verify first call is main_script, then all subsequent calls are ai_fix
-                assert call_sequence[0] == "main_script"
-                assert all(call == "ai_fix" for call in call_sequence[1:]), f"After main_script fails, should only call ai_fix. Sequence: {call_sequence}"
+            # Verify first call is main_script, then all subsequent calls are ai_fix
+            assert call_sequence[0] == "main_script"
+            assert all(
+                call == "ai_fix" for call in call_sequence[1:]
+            ), f"After main_script fails, should only call ai_fix. Sequence: {call_sequence}"
 
-                # Should end with failure after max attempts
-                assert final_state["success"] is False
-                assert final_state["attempt"] == 2  # 3 attempts (0, 1, 2)
+            # Should end with failure after max attempts
+            assert final_state["success"] is False
+            assert final_state["attempt"] == 2  # 3 attempts (0, 1, 2)

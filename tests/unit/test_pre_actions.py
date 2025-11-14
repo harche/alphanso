@@ -227,8 +227,12 @@ class TestPreActionsNode:
                 # Verify workspace was created in config_directory, not current directory
                 workspace_in_config = config_dir / "my_workspace"
                 workspace_in_current = other_dir / "my_workspace"
-                assert workspace_in_config.exists(), "Pre-action should create working_directory in config_directory"
-                assert not workspace_in_current.exists(), "Pre-action should NOT create in current directory"
+                assert (
+                    workspace_in_config.exists()
+                ), "Pre-action should create working_directory in config_directory"
+                assert (
+                    not workspace_in_current.exists()
+                ), "Pre-action should NOT create in current directory"
 
                 # Verify pwd showed config_directory
                 pwd_output = updated_state["pre_action_results"][1]["output"].strip()
@@ -280,7 +284,9 @@ class TestPreActionsNode:
 
                 # Verify workspace was created in current directory
                 workspace = Path(temp_dir) / "my_workspace"
-                assert workspace.exists(), "Pre-action should create working_directory in current dir"
+                assert (
+                    workspace.exists()
+                ), "Pre-action should create working_directory in current dir"
                 assert workspace.is_dir()
 
                 # Verify pwd showed current directory (temp_dir)

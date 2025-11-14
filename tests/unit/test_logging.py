@@ -5,12 +5,7 @@ import logging
 import sys
 from io import StringIO
 
-from alphanso.utils.logging import (
-    JSONFormatter,
-    get_logger,
-    is_logging_configured,
-    setup_logging,
-)
+from alphanso.utils.logging import JSONFormatter, get_logger, is_logging_configured, setup_logging
 
 
 class TestJSONFormatter:

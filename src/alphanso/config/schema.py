@@ -6,7 +6,7 @@ including pre-actions, validators, and convergence settings.
 
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -46,9 +46,7 @@ class MainScriptConfig(BaseModel):
 
     command: str = Field(..., min_length=1, description="Shell command to execute")
     description: str = Field(default="", description="Description of the script")
-    timeout: float = Field(
-        default=600.0, ge=1.0, description="Timeout in seconds"
-    )
+    timeout: float = Field(default=600.0, ge=1.0, description="Timeout in seconds")
 
     @model_validator(mode="after")
     def default_description(self) -> "MainScriptConfig":
@@ -144,9 +142,7 @@ class ValidatorConfig(BaseModel):
     type: str = Field(..., description="Validator type (command, git-conflict)")
     name: str = Field(..., description="Human-readable validator name")
     timeout: float = Field(default=600.0, ge=1.0, description="Timeout in seconds")
-    command: str | None = Field(
-        default=None, description="Shell command (for command validator)"
-    )
+    command: str | None = Field(default=None, description="Shell command (for command validator)")
     capture_lines: int = Field(
         default=100, ge=1, description="Lines to capture (for command validator)"
     )
@@ -266,9 +262,7 @@ class ConvergenceConfig(BaseModel):
 
                 # Read file and populate system_prompt field
                 if not prompt_path.exists():
-                    raise FileNotFoundError(
-                        f"System prompt file not found: {prompt_path}"
-                    )
+                    raise FileNotFoundError(f"System prompt file not found: {prompt_path}")
 
                 with open(prompt_path) as f:
                     claude_config["system_prompt"] = f.read()

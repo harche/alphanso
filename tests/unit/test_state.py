@@ -153,9 +153,7 @@ class TestConvergenceState:
         """Test AI interaction related fields."""
         state: ConvergenceState = {
             "agent_session_id": "session-123",
-            "agent_tool_calls": [
-                {"tool": "git_diff", "args": {}, "result": "diff output"}
-            ],
+            "agent_tool_calls": [{"tool": "git_diff", "args": {}, "result": "diff output"}],
             "agent_messages": ["Analyzing the failure...", "Fixed the issue"],
         }
 
@@ -166,9 +164,7 @@ class TestConvergenceState:
     def test_convergence_state_config_fields(self) -> None:
         """Test configuration related fields."""
         state: ConvergenceState = {
-            "validators_config": [
-                {"type": "command", "name": "build", "command": "make"}
-            ],
+            "validators_config": [{"type": "command", "name": "build", "command": "make"}],
             "ai_tools_config": {"enabled": ["git_diff", "read_file"]},
             "retry_strategy": "targeted",
         }

@@ -64,9 +64,7 @@ class PreAction:
         self.command = command
         self.description = description or command
 
-    def run(
-        self, env_vars: dict[str, str], working_dir: str | None = None
-    ) -> PreActionResult:
+    def run(self, env_vars: dict[str, str], working_dir: str | None = None) -> PreActionResult:
         """Run pre-action with variable substitution (sync wrapper).
 
         This is a convenience wrapper that calls arun() using asyncio.run().
