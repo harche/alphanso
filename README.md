@@ -222,41 +222,6 @@ This permission model is **NOT appropriate** for:
 - ❌ Systems with access to production credentials
 - ❌ Untrusted or multi-tenant environments
 
-### Best Practices
-
-1. **Isolate the Execution Environment**
-   ```bash
-   # Run in Docker container
-   docker run --rm -v $(pwd):/workspace alphanso-image \
-     alphanso run --config /workspace/config.yaml
-
-   # Or in dedicated directory
-   mkdir /tmp/alphanso-workspace
-   cd /tmp/alphanso-workspace
-   alphanso run --config config.yaml
-   ```
-
-2. **Limit Credentials and Access**
-   - Use read-only git credentials when possible
-   - Avoid exposing production API keys or secrets
-   - Use temporary/scoped credentials for package managers
-   - Set restrictive `working_directory` in configuration
-
-3. **Review Configuration Files**
-   - Audit `pre_actions` commands for security implications
-   - Verify `main_script` doesn't access sensitive systems
-   - Check `validators` don't expose confidential data
-
-4. **Monitor and Log**
-   - Enable verbose logging to track AI actions: `--log-level DEBUG`
-   - Review logs for unexpected behavior
-   - Use structured logging for audit trails
-
-5. **Network Isolation**
-   - Run in networks with restricted outbound access
-   - Use firewall rules to limit external connections
-   - Avoid environments with access to internal services
-
 ### Threat Model
 
 Alphanso's AI agent:
