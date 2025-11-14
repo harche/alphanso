@@ -1,0 +1,95 @@
+# Dependabot configuration for Alphanso
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python dependencies (pip/uv)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    # Group updates by type
+    groups:
+      # Core runtime dependencies
+      core-dependencies:
+        patterns:
+          - "langgraph*"
+          - "anthropic*"
+          - "claude-agent-sdk*"
+          - "pydantic*"
+        update-types:
+          - "minor"
+          - "patch"
+      # CLI and utility dependencies
+      utilities:
+        patterns:
+          - "click*"
+          - "rich*"
+          - "pyyaml*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Development dependencies
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "mypy*"
+          - "black*"
+          - "isort*"
+          - "ruff*"
+          - "pre-commit*"
+          - "types-*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Vertex AI dependencies
+      vertex-dependencies:
+        patterns:
+          - "google-cloud-*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Limit number of open PRs
+    open-pull-requests-limit: 5
+    # Add labels to PRs
+    labels:
+      - "dependencies"
+      - "python"
+    # Reviewers (update with your GitHub username)
+    reviewers:
+      - "harche"
+    # Commit message prefix
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # Ignore major version updates for unstable packages
+    ignore:
+      # Claude Agent SDK is still in early development (0.x)
+      - dependency-name: "claude-agent-sdk"
+        update-types: ["version-update:semver-major"]
+      # LangGraph may have breaking changes
+      - dependency-name: "langgraph*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "harche"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Don't limit GitHub Actions updates
+    open-pull-requests-limit: 10
