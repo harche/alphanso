@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     # SECURITY: Only run for Dependabot PRs, never for external contributors
     if: |
-      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
       github.event.pull_request.author_association == 'NONE'
     steps:
       - name: Dependabot metadata
@@ -38,7 +38,7 @@ jobs:
     needs: auto-approve
     # SECURITY: Only run for Dependabot PRs, never for external contributors
     if: |
-      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
       github.event.pull_request.author_association == 'NONE'
     steps:
       - name: Dependabot metadata
