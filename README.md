@@ -250,23 +250,6 @@ config = ConvergenceConfig(
 result = await arun_convergence(config=config)
 ```
 
-**Benefits of callables:**
-- Type safety and IDE support
-- Direct access to Python ecosystem
-- Better error handling and debugging
-- No shell escaping issues
-
-**Function signature**: All callables receive optional `**kwargs`:
-- `working_dir`: Current working directory
-- `config_dir`: Configuration directory
-- `env_vars`: Environment variables
-- `state`: Workflow state (includes `attempt` number)
-
-**Error handling:**
-- Success: Function returns normally
-- Failure: Function raises an exception (will be retried)
-- Timeout: Function exceeds timeout limit
-
 See [`examples/callable-demo/`](examples/callable-demo/) for a complete example.
 
 ### Additional Examples
