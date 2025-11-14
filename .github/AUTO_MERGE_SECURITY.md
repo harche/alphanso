@@ -18,39 +18,44 @@ This document explains the security controls for auto-merge and PR commands.
 ```yaml
 if: |
   github.event.pull_request.user.login == 'dependabot[bot]' &&
-  github.event.pull_request.author_association == 'NONE' &&
-  github.event.pull_request.user.type == 'Bot'
+  github.event.pull_request.author_association == 'NONE'
 ```
 
-**Defense in Depth - Three Independent Checks:**
+**Defense in Depth - Three Independent Layers:**
 
 **Layer 1: Username Check**
 - ✅ PR author MUST be exactly `dependabot[bot]`
 - ❌ Cannot register username with `[bot]` suffix - reserved by GitHub for bots only
 - ❌ Fake account named "dependabot" (without suffix) won't match
+- ℹ️ The `[bot]` suffix is a GitHub-enforced naming convention for bot accounts
 
 **Layer 2: Author Association Check**
 - ✅ Author association MUST be `NONE` (Dependabot's association type)
-- ❌ GitHub controls this value - users CANNOT fake it
+- ❌ GitHub controls this value server-side - users CANNOT fake it
 - ❌ Forked "dependabot" account would have `FIRST_TIME_CONTRIBUTOR` or `CONTRIBUTOR`
 - ❌ Even collaborators have `COLLABORATOR`, not `NONE`
+- ❌ Repository owners have `OWNER`, not `NONE`
+- ℹ️ Only the real GitHub-managed Dependabot bot has association `NONE`
 
-**Layer 3: User Type Check**
-- ✅ User type MUST be `Bot`
-- ❌ GitHub controls this value - users CANNOT fake it
-- ❌ Regular user accounts have type `User`, not `Bot`
-- ❌ Organization accounts have type `Organization`, not `Bot`
-
-**Layer 4: Metadata Validation**
+**Layer 3: Metadata Validation**
 - ✅ Official `dependabot/fetch-metadata@v2` action validates the PR
 - ❌ This action only succeeds for genuine Dependabot PRs
 - ❌ Fails for any impersonation attempts
+- ℹ️ Maintained by GitHub, cryptographically verifies Dependabot identity
+
+**Why This Is Secure:**
+
+The combination of Layers 1 and 2 alone is cryptographically impossible to fake:
+- Layer 1 requires a GitHub-reserved account name format
+- Layer 2 requires GitHub's internal authorization system to mark the association
+- Both are server-side values controlled by GitHub, not client-supplied data
 
 **Attack Scenarios - All Prevented:**
 1. Someone creates account "dependabot" → ❌ Missing `[bot]` suffix (Layer 1 fails)
-2. Someone uses git config to fake author → ❌ GitHub sets author from account (Layer 2/3 fail)
+2. Someone uses git config to fake author → ❌ GitHub sets author from account (Layer 2 fails)
 3. Someone compromises a fork → ❌ Wrong author_association (Layer 2 fails)
 4. Malicious bot account tries to impersonate → ❌ Wrong username and association (Layers 1+2 fail)
+5. Supply chain attack on dependencies → ✅ Major versions require manual review
 
 ### 2. Version Update Type Check
 

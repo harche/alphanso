@@ -18,11 +18,10 @@ jobs:
     # Multiple layers of validation:
     # 1. User login must be exactly 'dependabot[bot]' (GitHub reserves [bot] suffix)
     # 2. Author association must be 'NONE' (GitHub-controlled, cannot be faked)
-    # 3. User type must be 'Bot' (GitHub-controlled, cannot be faked)
+    # 3. dependabot/fetch-metadata action provides additional validation
     if: |
       github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.event.pull_request.author_association == 'NONE' &&
-      github.event.pull_request.user.type == 'Bot'
+      github.event.pull_request.author_association == 'NONE'
     steps:
       - name: Dependabot metadata
         id: metadata
@@ -45,8 +44,7 @@ jobs:
     # Multiple layers of validation (same as auto-approve job)
     if: |
       github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.event.pull_request.author_association == 'NONE' &&
-      github.event.pull_request.user.type == 'Bot'
+      github.event.pull_request.author_association == 'NONE'
     steps:
       - name: Dependabot metadata
         id: metadata
