@@ -116,7 +116,9 @@ uv run alphanso run --config config.yaml --log-file logs.json --log-format json
 
 ### Using the Python API
 
-You can also use Alphanso programmatically. The API accepts `ConvergenceConfig` objects:
+#### Synchronous Usage
+
+For CLI tools, scripts, and other synchronous contexts:
 
 ```python
 import logging
@@ -147,8 +149,47 @@ if result["success"]:
         print(f"{status} {action['action']}")
 ```
 
-The `run_convergence()` function:
-- **Takes**:
+#### Asynchronous Usage
+
+For Kubernetes operators, FastAPI servers, and async applications:
+
+```python
+import asyncio
+from pathlib import Path
+from alphanso.api import arun_convergence
+from alphanso.config.schema import ConvergenceConfig
+
+async def main():
+    # Load config from YAML file
+    config = ConvergenceConfig.from_yaml(Path("examples/hello-world/config.yaml"))
+
+    # Load system prompt
+    system_prompt = Path("examples/hello-world/prompts/conflict-resolver.txt").read_text()
+
+    # Run convergence asynchronously
+    result = await arun_convergence(
+        config=config,
+        system_prompt_content=system_prompt,
+        env_vars={"CUSTOM_VAR": "value"}
+    )
+
+    return result
+
+# Run in event loop
+result = asyncio.run(main())
+
+# Or use in async context (e.g., Kubernetes operator with kopf)
+# @kopf.on.create('alphanso.io', 'v1', 'convergences')
+# async def reconcile(spec, **kwargs):
+#     config = ConvergenceConfig(**spec)
+#     result = await arun_convergence(config=config, ...)
+#     return result
+```
+
+**API Reference:**
+
+Both `run_convergence()` (sync) and `arun_convergence()` (async) accept:
+- **Parameters**:
   - `config`: ConvergenceConfig object
   - `system_prompt_content`: System prompt for AI agent (required)
   - `env_vars`: Optional environment variables
