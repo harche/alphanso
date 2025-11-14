@@ -1,0 +1,189 @@
+name: PR Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-commands:
+    runs-on: ubuntu-latest
+    # Only run on PR comments
+    if: github.event.issue.pull_request != null
+    steps:
+      - name: Check for commands
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment.body.trim();
+            const prNumber = context.payload.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Get PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+
+            // /hold - Add 'do-not-merge/hold' label
+            if (comment === '/hold') {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['do-not-merge/hold']
+              });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: '🚧 PR is on hold. Use `/unhold` to remove the hold.'
+              });
+              return;
+            }
+
+            // /unhold - Remove 'do-not-merge/hold' label
+            if (comment === '/unhold') {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  name: 'do-not-merge/hold'
+                });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: '✅ Hold removed. PR is ready for review.'
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body: '⚠️ No hold label found on this PR.'
+                  });
+                }
+              }
+              return;
+            }
+
+            // /approve - Approve the PR
+            if (comment === '/approve') {
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'APPROVE',
+                body: 'Approved via `/approve` command.'
+              });
+              return;
+            }
+
+            // /lgtm - Add 'lgtm' label and approve
+            if (comment === '/lgtm') {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['lgtm']
+              });
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'APPROVE',
+                body: '👍 LGTM (Looks Good To Me)'
+              });
+              return;
+            }
+
+            // /merge - Enable auto-merge
+            if (comment === '/merge') {
+              // Check if PR has required approvals and passing checks
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+
+              const approvals = reviews.filter(r => r.state === 'APPROVED').length;
+
+              if (approvals === 0) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: '⚠️ PR needs at least one approval before auto-merge can be enabled. Use `/approve` or `/lgtm` first.'
+                });
+                return;
+              }
+
+              // Enable auto-merge
+              try {
+                await github.rest.pulls.merge({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  merge_method: 'squash'
+                });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: '✅ PR merged successfully!'
+                });
+              } catch (error) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: `⚠️ Failed to merge: ${error.message}\n\nMake sure all checks are passing.`
+                });
+              }
+              return;
+            }
+
+            // /retest - Retrigger CI
+            if (comment === '/retest') {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: '🔄 Retriggering CI... Close and reopen the PR or push an empty commit to retrigger.'
+              });
+              return;
+            }
+
+            // /help - Show available commands
+            if (comment === '/help') {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: `## Available PR Commands
+
+- \`/hold\` - Put PR on hold (adds 'do-not-merge/hold' label)
+- \`/unhold\` - Remove hold
+- \`/approve\` - Approve the PR
+- \`/lgtm\` - Approve with "Looks Good To Me" (adds 'lgtm' label)
+- \`/merge\` - Merge the PR (requires approval and passing checks)
+- \`/retest\` - Retrigger CI checks
+- \`/help\` - Show this help message
+
+**Dependabot Commands:**
+- \`@dependabot rebase\` - Rebase PR on latest main
+- \`@dependabot recreate\` - Recreate PR from scratch
+- \`@dependabot merge\` - Merge PR (if checks pass)
+- \`@dependabot squash and merge\` - Squash and merge`
+              });
+              return;
+            }
