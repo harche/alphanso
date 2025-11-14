@@ -89,11 +89,8 @@ async def run_command_async(
         # Wait for completion with timeout, while streaming output
         try:
             # Run both the stream reader and wait for process completion
-            await asyncio.wait_for(
-                asyncio.gather(read_stream(), process.wait()),
-                timeout=timeout
-            )
-        except asyncio.TimeoutError:
+            await asyncio.wait_for(asyncio.gather(read_stream(), process.wait()), timeout=timeout)
+        except TimeoutError:
             # Kill the process if it times out
             try:
                 process.kill()
