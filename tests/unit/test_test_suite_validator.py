@@ -1,6 +1,6 @@
 """Unit tests for TestSuiteValidator."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 from alphanso.validators.test_suite import TestSuiteValidator
 
@@ -37,14 +37,16 @@ class TestTestSuiteValidatorInit:
 class TestValidate:
     """Tests for validate method."""
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_successful_test_run(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_successful_test_run(self, mock_run_command: AsyncMock) -> None:
         """Returns success ValidationResult when tests pass."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"All tests passed\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "All tests passed\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 1.5,
+        }
 
         validator = TestSuiteValidator(name="Tests", command="make test")
         result = validator.validate()
@@ -54,38 +56,36 @@ class TestValidate:
         assert result["exit_code"] == 0
         assert "All tests passed" in result["output"]
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_failed_test_run(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_failed_test_run(self, mock_run_command: AsyncMock) -> None:
         """Returns failure ValidationResult when tests fail."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(
-            return_value=(
-                b"Test output here\n",
-                b"Error: test_foo failed\nError: test_bar failed\n",
-            )
-        )
-        mock_process.returncode = 1
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": False,
+            "output": "Test output here\nError: test_foo failed\nError: test_bar failed\n",
+            "stderr": "",
+            "exit_code": 1,
+            "duration": 2.0,
+        }
 
         validator = TestSuiteValidator(name="Tests", command="make test")
         result = validator.validate()
 
         assert not result["success"]
         assert result["exit_code"] == 1
-        assert "test_foo failed" in result["stderr"]
-        assert "test_bar failed" in result["stderr"]
+        # Note: With new implementation, stderr is merged into output
+        assert "test_foo failed" in result["output"]
+        assert "test_bar failed" in result["output"]
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_timeout_handling(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_timeout_handling(self, mock_run_command: AsyncMock) -> None:
         """Returns timeout error when test execution times out."""
-
-        # Create mock process that times out
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(side_effect=TimeoutError())
-        mock_process.kill = Mock()  # kill() is not async in real asyncio
-        mock_process.wait = AsyncMock()
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": False,
+            "output": "",
+            "stderr": "Command timed out after 600.0 seconds",
+            "exit_code": None,
+            "duration": 600.0,
+        }
 
         validator = TestSuiteValidator(name="Tests", command="make test", timeout=600.0)
         result = validator.validate()
@@ -95,14 +95,16 @@ class TestValidate:
         assert "timed out" in result["stderr"]
         assert result["metadata"]["timeout"]
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_always_runs_exact_command(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_always_runs_exact_command(self, mock_run_command: AsyncMock) -> None:
         """Verifies that validator runs the exact command specified."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"ok\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "ok\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.5,
+        }
 
         validator = TestSuiteValidator(
             name="Tests",
@@ -110,42 +112,46 @@ class TestValidate:
         )
         validator.validate()
 
-        # Verify subprocess was called with the exact command
-        mock_subprocess.assert_called_once()
-        call_args = mock_subprocess.call_args
+        # Verify run_command_async was called with the exact command
+        mock_run_command.assert_called_once()
+        call_args = mock_run_command.call_args
         assert call_args.args[0] == "make test"
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_truncates_stdout_to_last_n_lines(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_truncates_stdout_to_last_n_lines(self, mock_run_command: AsyncMock) -> None:
         """Truncates stdout to last N lines."""
         # Create output with 300 lines
         long_output = "\n".join([f"line {i}" for i in range(300)])
 
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(long_output.encode(), b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": long_output,
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 1.0,
+        }
 
         validator = TestSuiteValidator(name="Tests", command="make test", capture_lines=50)
         result = validator.validate()
 
         # Should only have last 50 lines
-        output_lines = result["output"].split("\n")
+        output_lines = result["output"].strip().split("\n")
         assert len(output_lines) == 50
         assert "line 250" in result["output"]  # Later lines included
         assert "line 0" not in result["output"]  # Early lines excluded
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_includes_full_stderr(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_includes_full_stderr(self, mock_run_command: AsyncMock) -> None:
         """Includes full stderr regardless of length."""
         long_stderr = "\n".join([f"error {i}" for i in range(300)])
 
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"", long_stderr.encode()))
-        mock_process.returncode = 1
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": False,
+            "output": "",
+            "stderr": long_stderr,
+            "exit_code": 1,
+            "duration": 1.0,
+        }
 
         validator = TestSuiteValidator(name="Tests", command="make test", capture_lines=50)
         result = validator.validate()
@@ -155,14 +161,16 @@ class TestValidate:
         assert "error 299" in result["stderr"]
         assert result["stderr"].count("\n") == 299
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_working_directory_passed_to_subprocess(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_working_directory_passed_to_subprocess(self, mock_run_command: AsyncMock) -> None:
         """Passes working_directory to subprocess."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.5,
+        }
 
         validator = TestSuiteValidator(
             name="Tests",
@@ -171,85 +179,99 @@ class TestValidate:
         )
         validator.validate()
 
-        mock_subprocess.assert_called_once()
-        assert mock_subprocess.call_args.kwargs["cwd"] == "/custom/path"
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.kwargs["working_dir"] == "/custom/path"
 
 
 class TestAnyCommand:
     """Tests showing TestSuiteValidator works with any command."""
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_go_test_command(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_go_test_command(self, mock_run_command: AsyncMock) -> None:
         """Works with Go test commands."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"PASS\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "PASS\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.5,
+        }
 
         validator = TestSuiteValidator(name="Go Tests", command="go test ./...")
         result = validator.validate()
 
         assert result["success"]
-        mock_subprocess.assert_called_once()
-        assert mock_subprocess.call_args.args[0] == "go test ./..."
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.args[0] == "go test ./..."
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_pytest_command(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_pytest_command(self, mock_run_command: AsyncMock) -> None:
         """Works with pytest commands."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"passed\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "===== 10 passed in 2.5s =====\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 2.5,
+        }
 
-        validator = TestSuiteValidator(name="Python Tests", command="pytest tests/")
+        validator = TestSuiteValidator(name="Python Tests", command="pytest tests/ -v")
         result = validator.validate()
 
         assert result["success"]
-        assert mock_subprocess.call_args.args[0] == "pytest tests/"
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.args[0] == "pytest tests/ -v"
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_npm_test_command(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_npm_test_command(self, mock_run_command: AsyncMock) -> None:
         """Works with npm test commands."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"passed\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "Test Suites: 5 passed, 5 total\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 3.0,
+        }
 
         validator = TestSuiteValidator(name="JS Tests", command="npm test")
         result = validator.validate()
 
         assert result["success"]
-        assert mock_subprocess.call_args.args[0] == "npm test"
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.args[0] == "npm test"
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_make_command(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_make_command(self, mock_run_command: AsyncMock) -> None:
         """Works with make commands."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"done\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "make[1]: Nothing to be done for 'all'\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.2,
+        }
 
-        validator = TestSuiteValidator(name="Make Tests", command="make test")
+        validator = TestSuiteValidator(name="Make Test", command="make all")
         result = validator.validate()
 
         assert result["success"]
-        assert mock_subprocess.call_args.args[0] == "make test"
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.args[0] == "make all"
 
-    @patch("asyncio.create_subprocess_shell")
-    def test_bundle_exec_rspec_command(self, mock_subprocess: Mock) -> None:
-        """Works with Ruby rspec commands."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"passed\n", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+    @patch("alphanso.validators.test_suite.run_command_async")
+    def test_bundle_exec_rspec_command(self, mock_run_command: AsyncMock) -> None:
+        """Works with bundle exec rspec commands."""
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "20 examples, 0 failures\n",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 4.0,
+        }
 
         validator = TestSuiteValidator(name="Ruby Tests", command="bundle exec rspec")
         result = validator.validate()
 
         assert result["success"]
-        assert mock_subprocess.call_args.args[0] == "bundle exec rspec"
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.args[0] == "bundle exec rspec"

@@ -56,9 +56,11 @@ class TestPreAction:
         """Test 4: PreAction respects timeout (600s)."""
         from unittest.mock import AsyncMock
 
-        # Create mock process
+        # Create mock process with stdout that triggers timeout
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(side_effect=TimeoutError())
+        mock_stdout = AsyncMock()
+        mock_stdout.readline = AsyncMock(side_effect=TimeoutError())
+        mock_process.stdout = mock_stdout
         mock_process.kill = Mock()  # kill() is not a coroutine in real asyncio
         mock_process.wait = AsyncMock()
 
