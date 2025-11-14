@@ -269,7 +269,7 @@ The framework is designed for **automation in controlled environments**, not for
 
 ### Reporting Security Issues
 
-If you discover a security vulnerability, please email security@example.com (or open a private security advisory on GitHub). Do not open public issues for security concerns.
+If you discover a security vulnerability, please open a [private security advisory on GitHub](https://github.com/harche/alphanso/security/advisories/new). Do not open public issues for security concerns.
 
 ## Development
 
