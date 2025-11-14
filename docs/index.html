@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Alphanso - AI Assisted Convergence Framework for Automation">
+    <title>Alphanso - AI Assisted Convergence Framework</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --text-color: #1f2937;
+            --light-bg: #f9fafb;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.5rem;
+            opacity: 0.95;
+            margin-bottom: 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .section {
+            padding: 4rem 0;
+        }
+
+        .section:nth-child(even) {
+            background: var(--light-bg);
+        }
+
+        .section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        .section p {
+            font-size: 1.125rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-card h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-card p {
+            text-align: left;
+            margin-bottom: 0;
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 2rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .workflow-diagram {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            border: 2px solid var(--border-color);
+            margin: 2rem auto;
+            max-width: 600px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .footer {
+            background: var(--text-color);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header p {
+                font-size: 1.125rem;
+            }
+
+            .section h2 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Alphanso</h1>
+        <p>AI Assisted Convergence Framework for Automation</p>
+        <div class="cta-buttons">
+            <a href="https://github.com/harche/alphanso" class="btn btn-primary">View on GitHub</a>
+            <a href="https://github.com/harche/alphanso#quick-start" class="btn btn-secondary">Get Started</a>
+        </div>
+    </header>
+
+    <section class="section">
+        <div class="container">
+            <h2>Overview</h2>
+            <p>Alphanso is a production-grade Python framework that leverages AI convergence loops to automate complex, iterative problem-solving workflows. Built on LangGraph state machine orchestration, it enables autonomous resolution of challenging tasks including dependency upgrades, code refactoring, infrastructure updates, and Kubernetes rebasing.</p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2>Workflow Architecture</h2>
+            <div class="workflow-diagram">
+START
+  ↓
+pre_actions (one-time setup)
+  ├─ SUCCESS → run_main_script
+  └─ FAILED → END [FAILURE]
+  ↓
+run_main_script
+  ├─ SUCCESS → END [SUCCESS]
+  └─ FAILED → ai_fix
+               ↓
+            validate
+               ↓
+            decide
+               ├─ validators PASSED → increment_attempt → run_main_script (retry)
+               ├─ validators FAILED → increment_attempt → ai_fix (loop)
+               └─ max attempts → END [FAILURE]
+            </div>
+            <p>The workflow begins with one-time setup operations. Upon successful setup, the main script executes. When failures occur, the AI agent investigates and applies corrective measures. Validators verify environment health before retrying. This cycle continues until success or max attempts.</p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2>Use Cases</h2>
+            <div class="features">
+                <div class="feature-card">
+                    <h3>Complex Rebasing</h3>
+                    <p>Rebase forked repositories with upstream changes, handling merge conflicts, dependency updates, and test failures automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Dependency Upgrades</h3>
+                    <p>Upgrade dependencies across large codebases with automatic break detection and fixing.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Code Refactoring</h3>
+                    <p>Large-scale refactoring with automated validation and issue resolution.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Infrastructure Updates</h3>
+                    <p>Update infrastructure configurations with validation and automated fixes.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Security Patching</h3>
+                    <p>Apply security patches while automatically fixing resulting regressions.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Database Migrations</h3>
+                    <p>Execute complex database migrations with automatic conflict resolution.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2>Quick Start</h2>
+            <div class="code-block"># Install using uv (recommended)
+uv add git+https://github.com/harche/alphanso.git
+
+# Set up authentication
+export ANTHROPIC_API_KEY="your-api-key"
+
+# Run hello world example
+uv run alphanso run --config examples/hello-world/config.yaml</div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="features">
+                <div class="feature-card">
+                    <h3>AI-Powered Convergence</h3>
+                    <p>Autonomous problem resolution using Claude AI agent with iterative fix-validate loops.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Production Ready</h3>
+                    <p>Built for CI/CD pipelines, Kubernetes operators, and automated workflows.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Flexible Configuration</h3>
+                    <p>YAML-based configuration with support for pre-actions, validators, and custom prompts.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Async & Sync APIs</h3>
+                    <p>Both synchronous and asynchronous APIs for different use cases.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Alphanso. Licensed under the <a href="https://github.com/harche/alphanso/blob/main/LICENSE">MIT License</a>.</p>
+            <p>
+                <a href="https://github.com/harche/alphanso">GitHub</a> •
+                <a href="https://github.com/harche/alphanso#installation">Documentation</a> •
+                <a href="https://github.com/harche/alphanso/issues">Issues</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

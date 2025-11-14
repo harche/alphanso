@@ -133,6 +133,13 @@ exclude_lines = [
     "@abstractmethod",
 ]
 
+[project.urls]
+Homepage = "https://harche.github.io/alphanso"
+Documentation = "https://github.com/harche/alphanso"
+Repository = "https://github.com/harche/alphanso"
+Issues = "https://github.com/harche/alphanso/issues"
+Changelog = "https://github.com/harche/alphanso/releases"
+
 [dependency-groups]
 dev = [
     "types-pyyaml>=6.0.12.20250915",
