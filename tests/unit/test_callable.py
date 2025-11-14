@@ -10,7 +10,12 @@ import pytest
 
 from alphanso.actions.pre_actions import PreAction
 from alphanso.config.schema import MainScriptConfig, PreActionConfig, ValidatorConfig
-from alphanso.graph.nodes import create_validators, run_main_script_node
+from alphanso.graph.nodes import (
+    create_validators,
+    pre_actions_node,
+    run_main_script_node,
+    validate_node,
+)
 from alphanso.utils.callable import run_callable_async
 from alphanso.validators.callable import CallableValidator
 
@@ -320,3 +325,255 @@ class TestMainScriptNode:
         assert result["main_script_succeeded"] is False
         assert result["main_script_result"]["success"] is False
         assert "Script failed" in result["main_script_result"]["stderr"]
+
+
+class TestPreActionsNodeIntegration:
+    """Integration tests for pre_actions_node with callable support."""
+
+    @pytest.mark.asyncio
+    async def test_pre_actions_node_with_callable(self) -> None:
+        """Test pre_actions_node executes callable from config."""
+
+        async def setup_callable(**kwargs) -> None:
+            print("Setup executed")
+
+        state = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [
+                {
+                    "callable": setup_callable,
+                    "description": "Setup environment",
+                }
+            ],
+            "config_directory": None,
+            "working_directory": "/test",
+            "env_vars": {},
+        }
+
+        result = await pre_actions_node(state)
+
+        assert result["pre_actions_completed"] is True
+        assert result["pre_actions_failed"] is False
+        assert len(result["pre_action_results"]) == 1
+        assert result["pre_action_results"][0]["success"] is True
+        assert "Setup executed" in result["pre_action_results"][0]["output"]
+
+    @pytest.mark.asyncio
+    async def test_pre_actions_node_with_multiple_callables(self) -> None:
+        """Test pre_actions_node with multiple callables."""
+
+        async def first_action(**kwargs) -> None:
+            print("First action")
+
+        async def second_action(**kwargs) -> None:
+            print("Second action")
+
+        state = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [
+                {"callable": first_action, "description": "First"},
+                {"callable": second_action, "description": "Second"},
+            ],
+            "config_directory": None,
+            "working_directory": "/test",
+            "env_vars": {},
+        }
+
+        result = await pre_actions_node(state)
+
+        assert result["pre_actions_completed"] is True
+        assert result["pre_actions_failed"] is False
+        assert len(result["pre_action_results"]) == 2
+        assert result["pre_action_results"][0]["success"] is True
+        assert result["pre_action_results"][1]["success"] is True
+        assert "First action" in result["pre_action_results"][0]["output"]
+        assert "Second action" in result["pre_action_results"][1]["output"]
+
+    @pytest.mark.asyncio
+    async def test_pre_actions_node_with_failing_callable(self) -> None:
+        """Test pre_actions_node handles callable failures."""
+
+        async def failing_action(**kwargs) -> None:
+            raise ValueError("Action failed")
+
+        state = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [
+                {"callable": failing_action, "description": "Failing action"}
+            ],
+            "config_directory": None,
+            "working_directory": "/test",
+            "env_vars": {},
+        }
+
+        result = await pre_actions_node(state)
+
+        assert result["pre_actions_completed"] is True
+        assert result["pre_actions_failed"] is True  # Should be marked as failed
+        assert len(result["pre_action_results"]) == 1
+        assert result["pre_action_results"][0]["success"] is False
+        assert "ValueError: Action failed" in result["pre_action_results"][0]["stderr"]
+
+    @pytest.mark.asyncio
+    async def test_pre_actions_node_mixed_commands_and_callables(self) -> None:
+        """Test pre_actions_node with both commands and callables."""
+
+        async def callable_action(**kwargs) -> None:
+            print("Callable executed")
+
+        state = {
+            "pre_actions_completed": False,
+            "pre_actions_config": [
+                {"command": "echo 'Command executed'", "description": "Command"},
+                {"callable": callable_action, "description": "Callable"},
+            ],
+            "config_directory": None,
+            "working_directory": "/test",
+            "env_vars": {},
+        }
+
+        result = await pre_actions_node(state)
+
+        assert result["pre_actions_completed"] is True
+        assert result["pre_actions_failed"] is False
+        assert len(result["pre_action_results"]) == 2
+        assert result["pre_action_results"][0]["success"] is True
+        assert result["pre_action_results"][1]["success"] is True
+        assert "Command executed" in result["pre_action_results"][0]["output"]
+        assert "Callable executed" in result["pre_action_results"][1]["output"]
+
+
+class TestValidateNodeIntegration:
+    """Integration tests for validate_node with callable validators."""
+
+    @pytest.mark.asyncio
+    async def test_validate_node_with_callable_validator(self) -> None:
+        """Test validate_node with callable validator from config."""
+
+        async def validate_callable(**kwargs) -> None:
+            print("Validation passed")
+
+        state = {
+            "validators_config": [
+                {
+                    "type": "callable",
+                    "name": "Custom Validation",
+                    "callable": validate_callable,
+                    "timeout": 10.0,
+                }
+            ],
+            "working_directory": "/test",
+            "attempt": 0,
+        }
+
+        result = await validate_node(state)
+
+        assert result["success"] is True
+        assert len(result["validation_results"]) == 1
+        assert result["validation_results"][0]["success"] is True
+        assert result["validation_results"][0]["validator_name"] == "Custom Validation"
+        assert "Validation passed" in result["validation_results"][0]["output"]
+        assert result["failed_validators"] == []
+
+    @pytest.mark.asyncio
+    async def test_validate_node_with_failing_callable_validator(self) -> None:
+        """Test validate_node handles callable validator failures."""
+
+        async def failing_validator(**kwargs) -> None:
+            raise AssertionError("Validation failed: output is invalid")
+
+        state = {
+            "validators_config": [
+                {
+                    "type": "callable",
+                    "name": "Failing Validator",
+                    "callable": failing_validator,
+                    "timeout": 10.0,
+                }
+            ],
+            "working_directory": "/test",
+            "attempt": 0,
+        }
+
+        result = await validate_node(state)
+
+        assert result["success"] is False
+        assert len(result["validation_results"]) == 1
+        assert result["validation_results"][0]["success"] is False
+        assert result["validation_results"][0]["validator_name"] == "Failing Validator"
+        assert "AssertionError: Validation failed" in result["validation_results"][0]["stderr"]
+        assert result["failed_validators"] == ["Failing Validator"]
+
+    @pytest.mark.asyncio
+    async def test_validate_node_with_multiple_callable_validators(self) -> None:
+        """Test validate_node with multiple callable validators."""
+
+        async def first_validator(**kwargs) -> None:
+            print("First check passed")
+
+        async def second_validator(**kwargs) -> None:
+            print("Second check passed")
+
+        state = {
+            "validators_config": [
+                {
+                    "type": "callable",
+                    "name": "First Check",
+                    "callable": first_validator,
+                    "timeout": 10.0,
+                },
+                {
+                    "type": "callable",
+                    "name": "Second Check",
+                    "callable": second_validator,
+                    "timeout": 10.0,
+                },
+            ],
+            "working_directory": "/test",
+            "attempt": 0,
+        }
+
+        result = await validate_node(state)
+
+        assert result["success"] is True
+        assert len(result["validation_results"]) == 2
+        assert result["validation_results"][0]["success"] is True
+        assert result["validation_results"][1]["success"] is True
+        assert "First check passed" in result["validation_results"][0]["output"]
+        assert "Second check passed" in result["validation_results"][1]["output"]
+
+    @pytest.mark.asyncio
+    async def test_validate_node_mixed_validators(self) -> None:
+        """Test validate_node with mixed command and callable validators."""
+
+        async def callable_validator(**kwargs) -> None:
+            print("Callable validation passed")
+
+        state = {
+            "validators_config": [
+                {
+                    "type": "command",
+                    "name": "Command Validator",
+                    "command": "echo 'Command validation passed'",
+                    "timeout": 10.0,
+                    "capture_lines": 100,
+                },
+                {
+                    "type": "callable",
+                    "name": "Callable Validator",
+                    "callable": callable_validator,
+                    "timeout": 10.0,
+                },
+            ],
+            "working_directory": ".",
+            "attempt": 0,
+        }
+
+        result = await validate_node(state)
+
+        assert result["success"] is True
+        assert len(result["validation_results"]) == 2
+        assert result["validation_results"][0]["success"] is True
+        assert result["validation_results"][1]["success"] is True
+        assert "Command validation passed" in result["validation_results"][0]["output"]
+        assert "Callable validation passed" in result["validation_results"][1]["output"]
