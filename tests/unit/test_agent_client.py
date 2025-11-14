@@ -5,7 +5,7 @@ without making real API calls to Claude.
 """
 
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -104,6 +104,164 @@ class TestConvergenceAgent:
 
                 # Verify async invoke was called with correct parameters
                 mock_async.assert_called_once_with("Test system prompt", "Test user message")
+
+    @pytest.mark.asyncio
+    async def test_ainvoke_streams_messages_from_sdk(self) -> None:
+        """Test ainvoke processes streaming messages from Claude SDK."""
+        from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock
+
+        # Create mock messages
+        mock_message = AssistantMessage(
+            content=[
+                TextBlock(text="I'll help you fix this issue"),
+                ToolUseBlock(id="tool1", name="Bash", input={"command": "ls"}),
+            ],
+            model="claude-sonnet-4-5@20250929"
+        )
+
+        # Mock async iterator
+        async def async_iterator():
+            yield mock_message
+
+        # Mock the SDK client
+        mock_client = MagicMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=async_iterator())
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock()
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
+
+            with patch("alphanso.agent.client.ClaudeSDKClient", return_value=mock_client):
+                response = await agent.ainvoke(
+                    system_prompt="You are a test agent",
+                    user_message="Fix the issue",
+                )
+
+                # Verify response structure
+                assert "content" in response
+                assert "tool_calls" in response
+                assert "tool_call_count" in response
+                assert "stop_reason" in response
+
+                # Verify message was collected
+                assert "I'll help you fix this issue" in response["content"]
+                assert response["tool_call_count"] == 1
+                assert response["stop_reason"] == "end_turn"
+
+                # Verify SDK was called correctly
+                mock_client.query.assert_called_once()
+                call_args = mock_client.query.call_args[0][0]
+                assert "You are a test agent" in call_args
+                assert "Fix the issue" in call_args
+
+    @pytest.mark.asyncio
+    async def test_ainvoke_handles_thinking_blocks(self) -> None:
+        """Test ainvoke processes thinking blocks from Claude."""
+        from claude_agent_sdk import AssistantMessage, ThinkingBlock, TextBlock
+
+        mock_message = AssistantMessage(
+            content=[
+                ThinkingBlock(thinking="Let me analyze the error...", signature="test"),
+                TextBlock(text="The issue is in the build configuration"),
+            ],
+            model="claude-sonnet-4-5@20250929"
+        )
+
+        async def async_iterator():
+            yield mock_message
+
+        mock_client = MagicMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=async_iterator())
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock()
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
+
+            with patch("alphanso.agent.client.ClaudeSDKClient", return_value=mock_client):
+                response = await agent.ainvoke(
+                    system_prompt="Test",
+                    user_message="Test",
+                )
+
+                # Thinking blocks are logged but not returned in content
+                assert len(response["content"]) == 1
+                assert "The issue is in the build configuration" in response["content"]
+
+    @pytest.mark.asyncio
+    async def test_ainvoke_handles_tool_results(self) -> None:
+        """Test ainvoke processes tool result blocks."""
+        from claude_agent_sdk import AssistantMessage, ToolResultBlock, TextBlock
+
+        mock_message = AssistantMessage(
+            content=[
+                ToolResultBlock(
+                    tool_use_id="tool1",
+                    content=[TextBlock(text="Command output: file1.txt file2.txt")]
+                ),
+            ],
+            model="claude-sonnet-4-5@20250929"
+        )
+
+        async def async_iterator():
+            yield mock_message
+
+        mock_client = MagicMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=async_iterator())
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock()
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            agent = ConvergenceAgent(model="claude-sonnet-4-5@20250929")
+
+            with patch("alphanso.agent.client.ClaudeSDKClient", return_value=mock_client):
+                response = await agent.ainvoke(
+                    system_prompt="Test",
+                    user_message="Test",
+                )
+
+                # Tool results don't add to content, but are processed
+                assert response["tool_call_count"] == 0  # ToolResultBlock doesn't increment
+                assert len(response["content"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_ainvoke_sets_permission_mode(self) -> None:
+        """Test ainvoke sets bypassPermissions mode for automation."""
+        from claude_agent_sdk import AssistantMessage, TextBlock
+
+        mock_message = AssistantMessage(
+            content=[TextBlock(text="Done")],
+            model="claude-sonnet-4-5@20250929"
+        )
+
+        async def async_iterator():
+            yield mock_message
+
+        mock_client = MagicMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=async_iterator())
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock()
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+            agent = ConvergenceAgent(
+                model="claude-sonnet-4-5@20250929",
+                working_directory="/test/path"
+            )
+
+            with patch("alphanso.agent.client.ClaudeSDKClient", return_value=mock_client) as mock_sdk:
+                await agent.ainvoke("System", "User")
+
+                # Verify SDK was initialized with correct options
+                mock_sdk.assert_called_once()
+                options = mock_sdk.call_args[1]["options"]
+                assert options.model == "claude-sonnet-4-5@20250929"
+                assert options.cwd == "/test/path"
+                assert options.permission_mode == "bypassPermissions"
 
 
 class TestBuildFixPrompt:

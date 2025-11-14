@@ -5,8 +5,9 @@
   <p>
     <a href="#installation">Installation</a> •
     <a href="#quick-start">Quick Start</a> •
+    <a href="#security">Security</a> •
     <a href="#use-cases">Use Cases</a> •
-    <a href="#documentation">Documentation</a> •
+    <a href="#development">Development</a> •
     <a href="#contributing">Contributing</a>
   </p>
 </div>
@@ -191,6 +192,84 @@ result = asyncio.run(main())
 - **Hello World**: [`examples/hello-world/`](examples/hello-world/) - Git merge conflict resolution with AI agent
 - **OpenShift Rebase**: [`examples/openshift-rebase/`](examples/openshift-rebase/) - Complex Kubernetes fork rebasing workflow
 - **Dependency Upgrade**: [`examples/dependency-upgrade/`](examples/dependency-upgrade/) - Automated dependency updates
+
+## Security
+
+### Trusted Execution Environment Requirement
+
+**⚠️ IMPORTANT**: Alphanso is designed to run in **trusted, isolated environments only**. The AI agent has unrestricted access to:
+- Execute arbitrary shell commands
+- Read and modify files in the working directory
+- Access environment variables
+- Make network requests (git, package managers, etc.)
+
+### Permission Model
+
+Alphanso uses the **bypassPermissions** mode from Claude Agent SDK, which:
+- **Grants full file system and command execution access** within the working directory
+- **Does NOT require user approval** for each action (designed for automation)
+- **Assumes the environment is controlled and secure**
+
+This permission model is appropriate for:
+- ✅ CI/CD pipelines running in isolated containers
+- ✅ Kubernetes operators in dedicated namespaces
+- ✅ Local development environments with disposable directories
+- ✅ Sandboxed VMs or containers
+
+This permission model is **NOT appropriate** for:
+- ❌ Production systems with sensitive data
+- ❌ Shared development environments
+- ❌ Systems with access to production credentials
+- ❌ Untrusted or multi-tenant environments
+
+### Best Practices
+
+1. **Isolate the Execution Environment**
+   ```bash
+   # Run in Docker container
+   docker run --rm -v $(pwd):/workspace alphanso-image \
+     alphanso run --config /workspace/config.yaml
+
+   # Or in dedicated directory
+   mkdir /tmp/alphanso-workspace
+   cd /tmp/alphanso-workspace
+   alphanso run --config config.yaml
+   ```
+
+2. **Limit Credentials and Access**
+   - Use read-only git credentials when possible
+   - Avoid exposing production API keys or secrets
+   - Use temporary/scoped credentials for package managers
+   - Set restrictive `working_directory` in configuration
+
+3. **Review Configuration Files**
+   - Audit `pre_actions` commands for security implications
+   - Verify `main_script` doesn't access sensitive systems
+   - Check `validators` don't expose confidential data
+
+4. **Monitor and Log**
+   - Enable verbose logging to track AI actions: `--log-level DEBUG`
+   - Review logs for unexpected behavior
+   - Use structured logging for audit trails
+
+5. **Network Isolation**
+   - Run in networks with restricted outbound access
+   - Use firewall rules to limit external connections
+   - Avoid environments with access to internal services
+
+### Threat Model
+
+Alphanso's AI agent:
+- **Can execute arbitrary code** provided in prompts or tool calls
+- **Has no built-in sandboxing** for command execution
+- **Trusts the environment** to provide isolation
+- **Does not validate** or sanitize commands before execution
+
+The framework is designed for **automation in controlled environments**, not for untrusted input or adversarial scenarios.
+
+### Reporting Security Issues
+
+If you discover a security vulnerability, please email security@example.com (or open a private security advisory on GitHub). Do not open public issues for security concerns.
 
 ## Development
 

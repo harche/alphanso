@@ -8,29 +8,30 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "langgraph>=0.2.0",
-    "anthropic>=0.40.0",
-    "claude-agent-sdk>=0.1.0",
-    "pydantic>=2.0.0",
-    "pyyaml>=6.0.0",
-    "click>=8.0.0",
-    "rich>=13.0.0",
+    "langgraph>=0.2,<2.0",
+    "anthropic>=0.40,<1.0",
+    "claude-agent-sdk>=0.1,<1.0",
+    "pydantic>=2.0,<3.0",
+    "pyyaml>=6.0,<7.0",
+    "click>=8.0,<9.0",
+    "rich>=13.0,<15.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.12.0",
-    "mypy>=1.8.0",
-    "black>=24.0.0",
-    "isort>=5.13.0",
-    "ruff>=0.6.0",
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "pytest-cov>=4.0,<5.0",
+    "pytest-mock>=3.12,<4.0",
+    "mypy>=1.8,<2.0",
+    "black>=24.0,<25.0",
+    "isort>=5.13,<6.0",
+    "ruff>=0.6,<1.0",
+    "types-PyYAML>=6.0,<7.0",
 ]
 vertex = [
-    "anthropic[vertex]>=0.40.0",
-    "google-cloud-aiplatform>=1.38.0",
+    "anthropic[vertex]>=0.40,<1.0",
+    "google-cloud-aiplatform>=1.38,<2.0",
 ]
 
 [project.scripts]
