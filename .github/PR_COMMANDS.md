@@ -4,10 +4,14 @@ This document describes the automated PR management features available in this r
 
 ## Auto-Merge for Dependabot PRs
 
+**⚠️ SECURITY: Only Dependabot PRs are auto-merged. External contributor PRs are NEVER auto-merged.**
+
 Dependabot PRs are automatically approved and merged when:
+- ✅ PR author is `dependabot[bot]` (verified)
 - ✅ All CI checks pass
 - ✅ Update is minor or patch version (not major)
 - ✅ No manual holds are placed
+- ✅ Branch protection rules satisfied
 
 **What happens:**
 1. Dependabot opens a PR
@@ -19,7 +23,11 @@ Dependabot PRs are automatically approved and merged when:
 
 **Major version updates** require manual review and are NOT auto-merged.
 
+**Security:** See [AUTO_MERGE_SECURITY.md](./AUTO_MERGE_SECURITY.md) for detailed security controls.
+
 ## PR Slash Commands
+
+**⚠️ SECURITY: Only maintainers, collaborators, and org members can use PR commands. External contributors are silently ignored.**
 
 Comment on any PR with these commands to trigger actions:
 
