@@ -4,11 +4,12 @@ This document explains the security controls for auto-merge and PR commands.
 
 ## Security Principles
 
-1. **Only Dependabot PRs are auto-merged** - Never external contributors
-2. **PR commands require write access** - Only maintainers/collaborators can use them
-3. **Branch protection is required** - Prevents bypassing checks
-4. **Major updates need manual review** - Breaking changes never auto-merge
-5. **Multiple approval layers** - CI + automated approval + branch protection
+1. **Dependabot PRs are auto-merged automatically** - Minor/patch updates only
+2. **External contributor PRs require dual approval** - Both `/approve` AND `/lgtm` from owner
+3. **PR commands require write access** - Only maintainers/collaborators can use them
+4. **Branch protection is required** - Prevents bypassing checks
+5. **Major updates need manual review** - Breaking changes never auto-merge
+6. **Multiple approval layers** - CI + manual approval + branch protection
 
 ## Auto-Merge Security Controls
 
@@ -63,6 +64,55 @@ if: steps.metadata.outputs.update-type != 'version-update:semver-major'
 **Without branch protection:**
 - Auto-merge workflows can approve but won't merge
 - Manual merge still requires passing checks
+
+## External Contributor Auto-Merge Security Controls
+
+### 1. Dual Approval Requirement
+
+```yaml
+# External PR Auto-Merge Workflow
+if: prAuthor !== 'harche' && prAuthor !== 'dependabot[bot]'
+```
+
+**Checks:**
+- ✅ PR must have approval review from repository owner (@harche)
+- ✅ PR must have `lgtm` label (added via `/lgtm` command by @harche)
+- ❌ Single approval is not sufficient - both are required
+- ❌ PRs from owner or dependabot are excluded from this workflow
+
+### 2. Owner-Only Approval
+
+```javascript
+const harcheApproval = reviews.some(review =>
+  review.user.login === 'harche' && review.state === 'APPROVED'
+);
+
+const hasLgtmLabel = pr.labels.some(label => label.name === 'lgtm');
+```
+
+**Requirements:**
+- ✅ Only approvals from @harche count
+- ✅ Only lgtm labels added by @harche (via `/lgtm` command) count
+- ❌ Approvals from other maintainers do not trigger auto-merge
+- ❌ Manual label additions without `/lgtm` command are not reliable
+
+### 3. Workflow Triggers
+
+**Triggers on:**
+- `pull_request_review.submitted` - When someone submits a review
+- `issue_comment.created` - When someone comments (for `/lgtm` command)
+
+**Why both triggers:**
+- `/approve` creates a review → triggers `pull_request_review` event
+- `/lgtm` adds label + creates review → triggers both events
+- Workflow checks conditions on every trigger to enable auto-merge
+
+### 4. CI Must Still Pass
+
+**Requirements:**
+- Auto-merge is enabled, but merge only happens when CI passes
+- If CI fails, PR remains in "auto-merge pending" state
+- Owner can use `/hold` to cancel auto-merge at any time
 
 ## PR Commands Security Controls
 

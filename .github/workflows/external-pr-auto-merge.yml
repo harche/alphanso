@@ -1,0 +1,162 @@
+name: External PR Auto-Merge
+
+on:
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  check-auto-merge:
+    runs-on: ubuntu-latest
+    # Only run on PRs, not on regular issues
+    if: github.event.pull_request != null || github.event.issue.pull_request != null
+    steps:
+      - name: Check for auto-merge eligibility
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Get PR number from either pull_request or issue event
+            const prNumber = context.payload.pull_request?.number || context.payload.issue?.number;
+
+            if (!prNumber) {
+              console.log('No PR number found, skipping');
+              return;
+            }
+
+            // Get PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+
+            const prAuthor = pr.user.login;
+
+            // SECURITY: Never auto-merge PRs from owner (harche) or dependabot
+            if (prAuthor === 'harche' || prAuthor === 'dependabot[bot]') {
+              console.log(`Skipping auto-merge for PR from ${prAuthor}`);
+              return;
+            }
+
+            console.log(`Checking auto-merge eligibility for PR #${prNumber} from ${prAuthor}`);
+
+            // Get all reviews
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+
+            // Get all comments on the PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber
+            });
+
+            // Check if harche has approved via review
+            const harcheApproval = reviews.some(review =>
+              review.user.login === 'harche' && review.state === 'APPROVED'
+            );
+
+            // Check if harche has used /lgtm command
+            const harcheLgtm = comments.some(comment =>
+              comment.user.login === 'harche' && comment.body.trim() === '/lgtm'
+            );
+
+            // Check for lgtm label (added by /lgtm command)
+            const hasLgtmLabel = pr.labels.some(label => label.name === 'lgtm');
+
+            console.log(`Review approval from harche: ${harcheApproval}`);
+            console.log(`/lgtm command from harche: ${harcheLgtm}`);
+            console.log(`Has lgtm label: ${hasLgtmLabel}`);
+
+            // Auto-merge requirements:
+            // 1. Must have approval review from harche
+            // 2. Must have lgtm label (from /lgtm command)
+            if (harcheApproval && hasLgtmLabel) {
+              console.log('✅ PR meets auto-merge criteria');
+
+              // Check if PR already has auto-merge enabled
+              if (pr.auto_merge) {
+                console.log('Auto-merge already enabled');
+                return;
+              }
+
+              // Enable auto-merge (will merge when CI passes)
+              try {
+                // Enable auto-merge using GraphQL API
+                const mutation = `
+                  mutation($pullRequestId: ID!) {
+                    enablePullRequestAutoMerge(input: {
+                      pullRequestId: $pullRequestId,
+                      mergeMethod: SQUASH
+                    }) {
+                      pullRequest {
+                        autoMergeRequest {
+                          enabledAt
+                        }
+                      }
+                    }
+                  }
+                `;
+
+                const result = await github.graphql(mutation, {
+                  pullRequestId: pr.node_id
+                });
+
+                console.log('✅ Auto-merge enabled via GraphQL');
+
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: '✅ Auto-merge enabled with approval and lgtm from @harche. PR will merge when all checks pass.'
+                });
+              } catch (error) {
+                console.log(`Failed to enable auto-merge: ${error.message}`);
+
+                // Fallback: try direct merge if CI already passed
+                try {
+                  await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    merge_method: 'squash'
+                  });
+
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body: '✅ PR merged successfully with approval and lgtm from @harche.'
+                  });
+
+                  console.log('✅ PR merged directly');
+                } catch (mergeError) {
+                  console.log(`Failed to merge: ${mergeError.message}`);
+
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body: '⚠️ Could not enable auto-merge or merge directly. Please ensure all CI checks are passing and there are no merge conflicts.'
+                  });
+                }
+              }
+            } else {
+              const missing = [];
+              if (!harcheApproval) missing.push('approval review from @harche');
+              if (!hasLgtmLabel) missing.push('lgtm label (use `/lgtm` command)');
+
+              console.log(`❌ PR does not meet auto-merge criteria. Missing: ${missing.join(', ')}`);
+            }

@@ -2,9 +2,11 @@
 
 This document describes the automated PR management features available in this repository.
 
-## Auto-Merge for Dependabot PRs
+## Auto-Merge for PRs
 
-**⚠️ SECURITY: Only Dependabot PRs are auto-merged. External contributor PRs are NEVER auto-merged.**
+### Dependabot PRs
+
+**⚠️ SECURITY: Only Dependabot PRs are auto-merged automatically.**
 
 Dependabot PRs are automatically approved and merged when:
 - ✅ PR author is `dependabot[bot]` (verified)
@@ -13,7 +15,20 @@ Dependabot PRs are automatically approved and merged when:
 - ✅ No manual holds are placed
 - ✅ Branch protection rules satisfied
 
-**What happens:**
+### External Contributor PRs
+
+**⚠️ SECURITY: External PRs require BOTH approval AND lgtm from @harche (repository owner).**
+
+External contributor PRs are auto-merged when:
+- ✅ PR is NOT from `harche` or `dependabot[bot]`
+- ✅ PR has approval review from @harche (via `/approve`)
+- ✅ PR has `lgtm` label from @harche (via `/lgtm`)
+- ✅ All CI checks pass
+- ✅ No merge conflicts
+- ✅ Branch protection rules satisfied
+
+### Dependabot Workflow
+
 1. Dependabot opens a PR
 2. CI runs automatically
 3. If checks pass and it's not a major update:
@@ -22,6 +37,17 @@ Dependabot PRs are automatically approved and merged when:
    - PR merges automatically when all conditions met
 
 **Major version updates** require manual review and are NOT auto-merged.
+
+### External Contributor Workflow
+
+1. External contributor opens a PR
+2. CI runs automatically
+3. Repository owner (@harche) reviews the PR
+4. Owner comments `/approve` to approve the PR
+5. Owner comments `/lgtm` to add lgtm label
+6. Auto-merge workflow detects both conditions
+7. Auto-merge is enabled
+8. PR merges automatically when all CI checks pass
 
 **Security:** See [AUTO_MERGE_SECURITY.md](./AUTO_MERGE_SECURITY.md) for detailed security controls.
 
