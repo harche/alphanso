@@ -114,7 +114,7 @@ class ConvergenceState(TypedDict, total=False):
     pre_actions_completed: bool
     pre_actions_failed: bool
     pre_action_results: list[PreActionResult]
-    pre_actions_config: list[dict[str, str]]
+    pre_actions_config: list[dict[str, Any]]
 
     # Main script (retried until it succeeds)
     main_script_config: dict[str, Any]

@@ -13,10 +13,11 @@ Benefits of callables:
 
 import asyncio
 import random
+from typing import Any
 
 
 # Pre-action callables
-async def setup_environment(working_dir: str = None, **kwargs) -> None:
+async def setup_environment(working_dir: str | None = None, **kwargs: Any) -> None:
     """Setup environment before main task.
 
     This is a pre-action that runs once before the convergence loop.
@@ -29,7 +30,7 @@ async def setup_environment(working_dir: str = None, **kwargs) -> None:
     print("✅ Environment setup complete")
 
 
-async def check_dependencies(**kwargs) -> None:
+async def check_dependencies(**kwargs: Any) -> None:
     """Verify dependencies are available.
 
     Another pre-action example that validates the environment.
@@ -42,7 +43,9 @@ async def check_dependencies(**kwargs) -> None:
 
 
 # Main script callables
-async def process_data(working_dir: str = None, state: dict = None, **kwargs) -> str:
+async def process_data(
+    working_dir: str | None = None, state: dict[str, Any] | None = None, **kwargs: Any
+) -> str:
     """Main task that processes data.
 
     This is the main script that gets retried until it succeeds.
@@ -68,7 +71,7 @@ async def process_data(working_dir: str = None, state: dict = None, **kwargs) ->
         raise RuntimeError("Connection timeout while fetching data")
 
 
-async def simple_task(**kwargs) -> None:
+async def simple_task(**kwargs: Any) -> None:
     """A simple task that always succeeds."""
     print("🎯 Running simple task...")
     await asyncio.sleep(0.5)
@@ -76,7 +79,7 @@ async def simple_task(**kwargs) -> None:
 
 
 # Validator callables
-async def validate_output(working_dir: str = None, **kwargs) -> None:
+async def validate_output(working_dir: str | None = None, **kwargs: Any) -> None:
     """Validate that output meets requirements.
 
     Validators check conditions. They raise exceptions on failure.
@@ -100,7 +103,7 @@ async def validate_output(working_dir: str = None, **kwargs) -> None:
     print("✅ All validations passed")
 
 
-async def check_format(working_dir: str = None, **kwargs) -> None:
+async def check_format(working_dir: str | None = None, **kwargs: Any) -> None:
     """Check that data format is correct."""
     print("📋 Checking data format...")
     await asyncio.sleep(0.2)
@@ -134,12 +137,8 @@ async def main() -> None:
         working_directory=".",
         # Pre-actions using callables
         pre_actions=[
-            PreActionConfig(
-                callable=setup_environment, description="Setup environment"
-            ),
-            PreActionConfig(
-                callable=check_dependencies, description="Check dependencies"
-            ),
+            PreActionConfig(callable=setup_environment, description="Setup environment"),
+            PreActionConfig(callable=check_dependencies, description="Check dependencies"),
         ],
         # Main script using callable
         main_script=MainScriptConfig(

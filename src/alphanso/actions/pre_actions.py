@@ -161,6 +161,7 @@ class PreAction:
                 )
             else:
                 # Execute command
+                assert self.command is not None  # Guaranteed by __init__ validation
                 expanded_command = self._substitute_vars(self.command, env_vars)
                 logger.info(f"Command (expanded): {expanded_command}")
                 result = await run_command_async(

@@ -83,10 +83,12 @@ def create_validators(
                 )
             )
         elif validator_type == "callable":
+            callable_func = config.get("callable")
+            assert callable_func is not None, "Callable validator requires 'callable' field"
             validators.append(
                 CallableValidator(
                     name=config.get("name", "Callable Validator"),
-                    callable=config.get("callable"),
+                    callable=callable_func,
                     timeout=config.get("timeout", 600.0),
                     working_dir=working_dir,
                 )
@@ -320,7 +322,9 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     from alphanso.graph.state import MainScriptResult
 
     script_result: MainScriptResult = {
-        "command": command if command else f"callable:{getattr(callable_func, '__name__', 'unknown')}",
+        "command": (
+            command if command else f"callable:{getattr(callable_func, '__name__', 'unknown')}"
+        ),
         "success": success,
         "output": result["output"][-2000:],  # Last 2000 chars
         "stderr": result["stderr"][-2000:],

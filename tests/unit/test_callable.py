@@ -9,11 +9,7 @@ import asyncio
 import pytest
 
 from alphanso.actions.pre_actions import PreAction
-from alphanso.config.schema import (
-    MainScriptConfig,
-    PreActionConfig,
-    ValidatorConfig,
-)
+from alphanso.config.schema import MainScriptConfig, PreActionConfig, ValidatorConfig
 from alphanso.graph.nodes import create_validators, run_main_script_node
 from alphanso.utils.callable import run_callable_async
 from alphanso.validators.callable import CallableValidator

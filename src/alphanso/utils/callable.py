@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def run_callable_async(
-    func: Callable,
+    func: Callable[..., Any],
     timeout: float = 600.0,
     **kwargs: Any,
 ) -> SubprocessResult:
@@ -106,7 +106,7 @@ async def run_callable_async(
                 duration=duration,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration = time.time() - start
             error_msg = f"Callable {func.__name__} timed out after {timeout} seconds"
             logger.warning(error_msg)

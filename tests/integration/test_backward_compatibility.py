@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import yaml
 
 from alphanso.config.schema import ConvergenceConfig
 from alphanso.graph.nodes import create_validators, pre_actions_node
@@ -143,9 +142,7 @@ validators:
             "max_attempts": 3,
             "pre_actions": [{"command": "echo test"}],
             "main_script": {"command": "echo main"},
-            "validators": [
-                {"type": "command", "name": "Val", "command": "echo validate"}
-            ],
+            "validators": [{"type": "command", "name": "Val", "command": "echo validate"}],
         }
 
         config = ConvergenceConfig.model_validate(config_dict)
