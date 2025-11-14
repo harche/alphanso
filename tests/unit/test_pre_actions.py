@@ -4,8 +4,9 @@ This module contains comprehensive tests for the PreAction class and
 pre_actions_node function, covering all success criteria from STEP 0.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from alphanso.actions.pre_actions import PreAction
 from alphanso.graph.nodes import pre_actions_node
@@ -53,12 +54,11 @@ class TestPreAction:
     @patch("asyncio.create_subprocess_shell")
     def test_respects_timeout(self, mock_subprocess: Mock) -> None:
         """Test 4: PreAction respects timeout (600s)."""
-        import asyncio
         from unittest.mock import AsyncMock
 
         # Create mock process
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_process.communicate = AsyncMock(side_effect=TimeoutError())
         mock_process.kill = Mock()  # kill() is not a coroutine in real asyncio
         mock_process.wait = AsyncMock()
 

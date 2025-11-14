@@ -4,9 +4,6 @@ import json
 import logging
 import sys
 from io import StringIO
-from pathlib import Path
-
-import pytest
 
 from alphanso.utils.logging import (
     JSONFormatter,

@@ -24,10 +24,7 @@ def build_fix_prompt(
         Complete system prompt with custom prefix + convergence context
     """
     # Start with custom prompt if provided
-    if custom_prompt:
-        prompt = custom_prompt.strip() + "\n\n---\n\n"
-    else:
-        prompt = ""
+    prompt = custom_prompt.strip() + "\n\n---\n\n" if custom_prompt else ""
 
     # Add convergence loop context
     attempt = state.get("attempt", 0)

@@ -7,8 +7,7 @@ Tests cover:
 - create_validators factory function
 """
 
-import time
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -66,11 +65,10 @@ class TestValidatorBase:
 
     def test_timeout_exception(self) -> None:
         """Test that timeout exceptions are handled correctly."""
-        import asyncio
 
         class TimeoutValidator(Validator):
             async def avalidate(self) -> ValidationResult:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
 
         validator = TimeoutValidator("Timeout Validator")
         result = validator.run()

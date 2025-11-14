@@ -4,7 +4,6 @@ This module provides functions to create and compile the LangGraph state graph
 for the convergence workflow.
 """
 
-from typing import TypeAlias
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -26,7 +25,7 @@ from alphanso.graph.state import ConvergenceState
 # - ContextT: Context passed to nodes (None - we don't use context)
 # - InputT: Input type when invoking graph (ConvergenceState)
 # - OutputT: Output type from graph execution (ConvergenceState)
-ConvergenceGraph: TypeAlias = CompiledStateGraph[
+type ConvergenceGraph = CompiledStateGraph[
     ConvergenceState, None, ConvergenceState, ConvergenceState
 ]
 

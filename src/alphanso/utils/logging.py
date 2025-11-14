@@ -11,7 +11,7 @@ This module provides comprehensive logging setup with support for:
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,14 +63,14 @@ class RelativeTimeRichHandler(RichHandler):
         return time_text + Text(" ") + level_text
 
 
-def trace(self, message, *args, **kwargs):
+def trace(self: logging.Logger, message: str, *args: Any, **kwargs: Any) -> None:
     """Log a message with severity 'TRACE' on this logger."""
     if self.isEnabledFor(TRACE):
         self._log(TRACE, message, args, **kwargs)
 
 
 # Add trace method to Logger class
-logging.Logger.trace = trace  # type: ignore
+logging.Logger.trace = trace  # type: ignore[attr-defined]
 
 
 class JSONFormatter(logging.Formatter):
@@ -95,7 +95,7 @@ class JSONFormatter(logging.Formatter):
             JSON string representing the log record
         """
         log_data: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -187,6 +187,7 @@ def setup_logging(
     logger.propagate = False
 
     # Console handler with Rich formatting
+    console_handler: logging.Handler
     if enable_colors and sys.stdout.isatty():
         console = Console(file=sys.stdout, force_terminal=True)
         console_handler = RelativeTimeRichHandler(

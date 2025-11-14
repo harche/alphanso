@@ -2,8 +2,6 @@
 
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
-
 from alphanso.validators.test_suite import TestSuiteValidator
 
 
@@ -83,11 +81,10 @@ class TestValidate:
     @patch("asyncio.create_subprocess_shell")
     def test_timeout_handling(self, mock_subprocess: Mock) -> None:
         """Returns timeout error when test execution times out."""
-        import asyncio
 
         # Create mock process that times out
         mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_process.communicate = AsyncMock(side_effect=TimeoutError())
         mock_process.kill = Mock()  # kill() is not async in real asyncio
         mock_process.wait = AsyncMock()
         mock_subprocess.return_value = mock_process
@@ -113,7 +110,7 @@ class TestValidate:
             name="Tests",
             command="make test",
         )
-        result = validator.validate()
+        validator.validate()
 
         # Verify subprocess was called with the exact command
         mock_subprocess.assert_called_once()

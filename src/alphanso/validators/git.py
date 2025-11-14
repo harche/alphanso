@@ -51,7 +51,7 @@ class GitConflictValidator(Validator):
         Returns:
             ValidationResult indicating whether conflicts were found
         """
-        logger.debug(f"Checking for git conflicts (async) with: git diff --check")
+        logger.debug("Checking for git conflicts (async) with: git diff --check")
         logger.debug(f"Working directory: {self.working_dir}")
 
         # git diff --check exits with non-zero if it finds conflict markers
@@ -68,13 +68,13 @@ class GitConflictValidator(Validator):
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 process.communicate(), timeout=self.timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Kill the process if it times out
             try:
                 process.kill()
                 await process.wait()
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Error killing process: {e}")
             return ValidationResult(
                 validator_name=self.name,
                 success=False,

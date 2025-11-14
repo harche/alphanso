@@ -155,12 +155,12 @@ class ConvergenceAgent:
                         if isinstance(block, TextBlock):
                             text = block.text
                             messages.append(text)
-                            logger.info(f"💭 Claude says:")
+                            logger.info("💭 Claude says:")
                             logger.info(f"   {text}")
 
                         # Claude's thinking process
                         elif isinstance(block, ThinkingBlock):
-                            logger.info(f"🤔 Claude is thinking:")
+                            logger.info("🤔 Claude is thinking:")
                             logger.info(f"   {block.thinking}")
 
                         # Tool being used
@@ -171,16 +171,16 @@ class ConvergenceAgent:
 
                         # Tool result
                         elif isinstance(block, ToolResultBlock):
-                            logger.info(f"   ✅ Tool result:")
+                            logger.info("   ✅ Tool result:")
                             # Tool results can have content
-                            if hasattr(block, "content"):
+                            if hasattr(block, "content") and block.content is not None:
                                 for result_item in block.content:
                                     if isinstance(result_item, TextBlock):
                                         output = result_item.text
                                         # Truncate long output at INFO, full at DEBUG
                                         if len(output) > 1000:
                                             logger.info(f"      {output[:1000]}")
-                                            logger.info(f"      ... (truncated)")
+                                            logger.info("      ... (truncated)")
                                             logger.debug(f"   Full tool output: {output}")
                                         else:
                                             logger.info(f"      {output}")

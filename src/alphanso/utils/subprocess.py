@@ -5,10 +5,9 @@ non-blocking command execution in async contexts like Kubernetes operators.
 """
 
 import asyncio
+import logging
 import time
 from typing import TypedDict
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,7 @@ async def run_command_async(
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 process.communicate(), timeout=timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Kill the process if it times out
             try:
                 process.kill()

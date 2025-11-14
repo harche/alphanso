@@ -4,12 +4,7 @@ These tests use actual shell commands to verify the validator works
 correctly in real-world scenarios.
 """
 
-import os
-import subprocess
-import tempfile
 from pathlib import Path
-
-import pytest
 
 from alphanso.validators import CommandValidator
 

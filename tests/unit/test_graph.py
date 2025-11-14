@@ -3,10 +3,11 @@
 This module tests LangGraph integration and graph execution.
 """
 
-import pytest
 import time
 from typing import Any
 from unittest.mock import patch
+
+import pytest
 
 from alphanso.graph.builder import create_convergence_graph
 from alphanso.graph.nodes import decide_node, pre_actions_node, validate_node
@@ -606,8 +607,7 @@ class TestGraphRetryLoop:
                 }
 
         # Patch both run_main_script_node and ai_fix_node
-        with patch("alphanso.graph.builder.run_main_script_node", main_script_that_succeeds_on_retry):
-            with patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node):
+        with patch("alphanso.graph.builder.run_main_script_node", main_script_that_succeeds_on_retry), patch("alphanso.graph.builder.ai_fix_node", mock_ai_fix_node):
                 graph = create_convergence_graph()
 
                 initial_state = create_test_state(
@@ -675,8 +675,7 @@ class TestGraphRetryLoop:
                 "main_script_succeeded": False,
             }
 
-        with patch("alphanso.graph.builder.ai_fix_node", tracking_ai_fix_node):
-            with patch("alphanso.graph.builder.run_main_script_node", tracking_main_script_node):
+        with patch("alphanso.graph.builder.ai_fix_node", tracking_ai_fix_node), patch("alphanso.graph.builder.run_main_script_node", tracking_main_script_node):
                 graph = create_convergence_graph()
 
                 initial_state = create_test_state(

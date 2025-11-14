@@ -3,10 +3,7 @@
 This module contains the node functions that make up the convergence state graph.
 """
 
-import asyncio
 import logging
-import subprocess
-import time
 from typing import Any
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
@@ -179,7 +176,7 @@ async def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
 
         # Show result
         if result["success"]:
-            logger.info(f"     ✅ Success")
+            logger.info("     ✅ Success")
             if result["output"]:
                 # Show first line of output if available
                 first_line = result["output"].strip().split("\n")[0]
@@ -189,7 +186,7 @@ async def pre_actions_node(state: ConvergenceState) -> dict[str, Any]:
                 logger.debug(f"Full output: {result['output']}")
         else:
             all_succeeded = False
-            logger.error(f"     ❌ Failed")
+            logger.error("     ❌ Failed")
             if result["stderr"]:
                 logger.error(f"     │ {result['stderr'][:200]}")
             logger.debug(f"Full stderr: {result['stderr']}")
@@ -262,7 +259,6 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     logger.info("")
 
     # Run the script with timing using async subprocess
-    start = time.time()
     result = await run_command_async(command, timeout=timeout, working_dir=working_dir)
     duration = result["duration"]
     success = result["success"]
@@ -581,12 +577,12 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
             model=model,
             working_directory=working_dir,
         )
-        logger.info(f"✅ Agent initialized")
+        logger.info("✅ Agent initialized")
         logger.info(f"   Provider: {agent.provider}")
         logger.info(f"   Model: {agent.model}")
     except Exception as e:
         logger.error(f"❌ Failed to initialize agent: {e}")
-        logger.debug(f"📤 Exiting ai_fix_node | Error during agent initialization")
+        logger.debug("📤 Exiting ai_fix_node | Error during agent initialization")
         return {
             "ai_response": {
                 "error": str(e),
@@ -604,7 +600,7 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
 
         response = await agent.ainvoke(system_prompt, user_message)
 
-        logger.info(f"✅ Agent invocation completed")
+        logger.info("✅ Agent invocation completed")
         logger.info(f"   Stop reason: {response.get('stop_reason', 'unknown')}")
         logger.info(f"   Tool calls: {response.get('tool_call_count', 0)}")
 
@@ -618,7 +614,7 @@ async def ai_fix_node(state: ConvergenceState) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"❌ Agent invocation failed: {e}")
-        logger.debug(f"📤 Exiting ai_fix_node | Error during agent invocation")
+        logger.debug("📤 Exiting ai_fix_node | Error during agent invocation")
         return {
             "ai_response": {
                 "error": str(e),

@@ -1,6 +1,5 @@
 """Tests for main script functionality."""
 
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,7 +7,7 @@ import pytest
 from alphanso.config.schema import MainScriptConfig
 from alphanso.graph.edges import check_main_script
 from alphanso.graph.nodes import run_main_script_node
-from alphanso.graph.state import ConvergenceState, MainScriptResult
+from alphanso.graph.state import ConvergenceState
 
 
 class TestMainScriptConfig:

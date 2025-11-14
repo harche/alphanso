@@ -159,7 +159,7 @@ async def arun_convergence(
         "working_directory": working_dir_str,
         "config_directory": config_dir_str,
         "agent_config": {"model": config.agent.claude.model},
-        "system_prompt_content": system_prompt_content,
+        "system_prompt_content": system_prompt_content or "",
     }
 
     # Create and execute convergence graph
@@ -189,7 +189,7 @@ async def arun_convergence(
 
     logger.info("=" * 70)
     if overall_success:
-        logger.info(f"✅ Convergence completed successfully - main script succeeded")
+        logger.info("✅ Convergence completed successfully - main script succeeded")
     elif not pre_actions_succeeded:
         failed_count = sum(1 for r in final_state["pre_action_results"] if not r["success"])
         logger.error(f"❌ Pre-actions failed ({failed_count} failure(s)) - workflow terminated")
