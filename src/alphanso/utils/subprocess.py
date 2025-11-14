@@ -35,11 +35,12 @@ async def run_command_async(
     timeout: float = 600.0,
     working_dir: str | None = None,
 ) -> SubprocessResult:
-    """Run shell command asynchronously.
+    """Run shell command asynchronously with real-time output streaming.
 
     This function executes a shell command without blocking the event loop,
-    allowing other async tasks to run concurrently. Useful for long-running
-    operations in async applications (e.g., Kubernetes operators, web servers).
+    allowing other async tasks to run concurrently. Output is streamed in
+    real-time to the logger to provide progress feedback for long-running
+    operations.
 
     Args:
         command: Shell command to execute
@@ -59,19 +60,36 @@ async def run_command_async(
     start = time.time()
 
     try:
-        # Create async subprocess
+        # Create async subprocess with stdout/stderr captured
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout
             cwd=working_dir,
         )
 
-        # Wait for completion with timeout
+        # Stream output in real-time
+        stdout_lines = []
+
+        async def read_stream() -> None:
+            """Read and log output in real-time."""
+            if process.stdout is None:
+                return
+
+            while True:
+                line_bytes = await process.stdout.readline()
+                if not line_bytes:
+                    break
+
+                line = line_bytes.decode("utf-8", errors="replace").rstrip()
+                if line:  # Only log non-empty lines
+                    logger.info(f"  {line}")
+                    stdout_lines.append(line)
+
+        # Wait for completion with timeout, while streaming output
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
-            )
+            # Run both the stream reader and wait for process completion
+            await asyncio.wait_for(asyncio.gather(read_stream(), process.wait()), timeout=timeout)
         except TimeoutError:
             # Kill the process if it times out
             try:
@@ -83,22 +101,19 @@ async def run_command_async(
             duration = time.time() - start
             return SubprocessResult(
                 success=False,
-                output="",
+                output="\n".join(stdout_lines),
                 stderr=f"Command timed out after {timeout} seconds",
                 exit_code=None,
                 duration=duration,
             )
 
         duration = time.time() - start
-
-        # Decode output
-        stdout = stdout_bytes.decode("utf-8", errors="replace")
-        stderr = stderr_bytes.decode("utf-8", errors="replace")
+        stdout = "\n".join(stdout_lines)
 
         return SubprocessResult(
             success=process.returncode == 0,
             output=stdout,
-            stderr=stderr,
+            stderr="",  # stderr was merged into stdout
             exit_code=process.returncode,
             duration=duration,
         )

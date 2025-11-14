@@ -118,7 +118,8 @@ class TestCommandValidator:
         result = validator.run()
 
         assert result["success"] is False
-        assert "error message" in result["stderr"]
+        # With streaming, stderr is merged into output
+        assert "error message" in result["output"]
 
     def test_output_line_capture(self) -> None:
         """Test that only last N lines are captured."""
@@ -184,14 +185,16 @@ class TestCommandValidator:
 class TestGitConflictValidator:
     """Test GitConflictValidator functionality."""
 
-    @patch("asyncio.create_subprocess_exec")
-    def test_no_conflicts(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.git.run_command_async")
+    def test_no_conflicts(self, mock_run_command: AsyncMock) -> None:
         """Test when there are no conflicts."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.1,
+        }
 
         validator = GitConflictValidator(
             name="Conflict Test",
@@ -204,56 +207,62 @@ class TestGitConflictValidator:
         assert result["metadata"]["has_conflicts"] is False
         assert result["metadata"]["command"] == "git diff --check"
 
-    @patch("asyncio.create_subprocess_exec")
-    def test_with_conflicts(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.git.run_command_async")
+    def test_with_conflicts(self, mock_run_command: AsyncMock) -> None:
         """Test when conflicts are detected."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(
-            return_value=(b"", b"file.txt:10: leftover conflict marker")
-        )
-        mock_process.returncode = 1
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": False,
+            "output": "file.txt:10: leftover conflict marker",
+            "stderr": "",
+            "exit_code": 1,
+            "duration": 0.1,
+        }
 
         validator = GitConflictValidator()
         result = validator.run()
 
         assert result["success"] is False
         assert result["metadata"]["has_conflicts"] is True
-        assert "conflict marker" in result["stderr"]
+        # With streaming, output is merged
+        assert "conflict marker" in result["output"]
 
-    @patch("asyncio.create_subprocess_exec")
-    def test_working_directory(self, mock_subprocess: Mock) -> None:
+    @patch("alphanso.validators.git.run_command_async")
+    def test_working_directory(self, mock_run_command: AsyncMock) -> None:
         """Test that working directory is passed to subprocess."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.1,
+        }
 
         validator = GitConflictValidator(
             working_dir="/path/to/repo",
         )
         validator.run()
 
-        # Check that subprocess was called with correct cwd
-        mock_subprocess.assert_called_once()
-        assert mock_subprocess.call_args.kwargs["cwd"] == "/path/to/repo"
+        # Check that run_command_async was called with correct working_dir
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.kwargs["working_dir"] == "/path/to/repo"
 
-    @patch("asyncio.create_subprocess_exec")
-    def test_timeout_parameter(self, mock_subprocess: Mock) -> None:
-        """Test that timeout is passed through (handled by asyncio.wait_for)."""
-        # Create mock process
-        mock_process = AsyncMock()
-        mock_process.communicate = AsyncMock(return_value=(b"", b""))
-        mock_process.returncode = 0
-        mock_subprocess.return_value = mock_process
+    @patch("alphanso.validators.git.run_command_async")
+    def test_timeout_parameter(self, mock_run_command: AsyncMock) -> None:
+        """Test that timeout is passed through."""
+        mock_run_command.return_value = {
+            "success": True,
+            "output": "",
+            "stderr": "",
+            "exit_code": 0,
+            "duration": 0.1,
+        }
 
         validator = GitConflictValidator(timeout=15.0)
         validator.run()
 
-        # The timeout is passed to asyncio.wait_for, not to subprocess directly
-        mock_subprocess.assert_called_once()
+        # The timeout is passed to run_command_async
+        mock_run_command.assert_called_once()
+        assert mock_run_command.call_args.kwargs["timeout"] == 15.0
 
     @patch("asyncio.create_subprocess_exec")
     def test_default_name(self, mock_subprocess: Mock) -> None:

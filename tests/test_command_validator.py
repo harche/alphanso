@@ -51,7 +51,8 @@ class TestCommandValidatorIntegration:
 
         assert result["success"] is False
         assert result["exit_code"] != 0
-        assert "No such file or directory" in result["stderr"]
+        # With streaming, stderr is merged into output
+        assert "No such file or directory" in result["output"]
 
     def test_python_script_execution(self, tmp_path: Path) -> None:
         """Test executing a Python script."""
@@ -254,7 +255,8 @@ test:
 
         assert result["success"] is True
         assert "stdout message" in result["output"]
-        assert "stderr message" in result["stderr"]
+        # With streaming, stderr is merged into output
+        assert "stderr message" in result["output"]
 
     def test_working_directory_affects_relative_paths(self, tmp_path: Path) -> None:
         """Test that working_dir affects relative path resolution."""
