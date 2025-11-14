@@ -13,19 +13,44 @@ This document explains the security controls for auto-merge and PR commands.
 
 ## Auto-Merge Security Controls
 
-### 1. Actor Verification
+### 1. Multi-Layer Actor Verification
 
 ```yaml
 if: |
-  github.actor == 'dependabot[bot]' &&
-  github.event.pull_request.author_association == 'NONE'
+  github.event.pull_request.user.login == 'dependabot[bot]' &&
+  github.event.pull_request.author_association == 'NONE' &&
+  github.event.pull_request.user.type == 'Bot'
 ```
 
-**Checks:**
-- ✅ PR author MUST be `dependabot[bot]`
-- ✅ Author association is `NONE` (Dependabot's association type)
-- ❌ External contributors cannot trigger auto-merge
-- ❌ Even if someone forks and creates "dependabot" user, association check prevents abuse
+**Defense in Depth - Three Independent Checks:**
+
+**Layer 1: Username Check**
+- ✅ PR author MUST be exactly `dependabot[bot]`
+- ❌ Cannot register username with `[bot]` suffix - reserved by GitHub for bots only
+- ❌ Fake account named "dependabot" (without suffix) won't match
+
+**Layer 2: Author Association Check**
+- ✅ Author association MUST be `NONE` (Dependabot's association type)
+- ❌ GitHub controls this value - users CANNOT fake it
+- ❌ Forked "dependabot" account would have `FIRST_TIME_CONTRIBUTOR` or `CONTRIBUTOR`
+- ❌ Even collaborators have `COLLABORATOR`, not `NONE`
+
+**Layer 3: User Type Check**
+- ✅ User type MUST be `Bot`
+- ❌ GitHub controls this value - users CANNOT fake it
+- ❌ Regular user accounts have type `User`, not `Bot`
+- ❌ Organization accounts have type `Organization`, not `Bot`
+
+**Layer 4: Metadata Validation**
+- ✅ Official `dependabot/fetch-metadata@v2` action validates the PR
+- ❌ This action only succeeds for genuine Dependabot PRs
+- ❌ Fails for any impersonation attempts
+
+**Attack Scenarios - All Prevented:**
+1. Someone creates account "dependabot" → ❌ Missing `[bot]` suffix (Layer 1 fails)
+2. Someone uses git config to fake author → ❌ GitHub sets author from account (Layer 2/3 fail)
+3. Someone compromises a fork → ❌ Wrong author_association (Layer 2 fails)
+4. Malicious bot account tries to impersonate → ❌ Wrong username and association (Layers 1+2 fail)
 
 ### 2. Version Update Type Check
 
