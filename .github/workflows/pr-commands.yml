@@ -115,7 +115,7 @@ jobs:
               return;
             }
 
-            // /merge - Enable auto-merge
+            // /merge - Merge the PR
             if (comment === '/merge') {
               // Check if PR has required approvals and passing checks
               const { data: reviews } = await github.rest.pulls.listReviews({
@@ -131,12 +131,12 @@ jobs:
                   owner,
                   repo,
                   issue_number: prNumber,
-                  body: '⚠️ PR needs at least one approval before auto-merge can be enabled. Use `/approve` or `/lgtm` first.'
+                  body: '⚠️ PR needs at least one approval before merge. Use `/approve` or `/lgtm` first.'
                 });
                 return;
               }
 
-              // Enable auto-merge
+              // Merge the PR
               try {
                 await github.rest.pulls.merge({
                   owner,
@@ -174,25 +174,25 @@ jobs:
 
             // /help - Show available commands
             if (comment === '/help') {
+              const helpMessage = "## Available PR Commands\n\n" +
+                "- \\`/hold\\` - Put PR on hold (adds 'do-not-merge/hold' label)\n" +
+                "- \\`/unhold\\` - Remove hold\n" +
+                "- \\`/approve\\` - Approve the PR\n" +
+                "- \\`/lgtm\\` - Approve with \"Looks Good To Me\" (adds 'lgtm' label)\n" +
+                "- \\`/merge\\` - Merge the PR (requires approval and passing checks)\n" +
+                "- \\`/retest\\` - Retrigger CI checks\n" +
+                "- \\`/help\\` - Show this help message\n\n" +
+                "**Dependabot Commands:**\n" +
+                "- \\`@dependabot rebase\\` - Rebase PR on latest main\n" +
+                "- \\`@dependabot recreate\\` - Recreate PR from scratch\n" +
+                "- \\`@dependabot merge\\` - Merge PR (if checks pass)\n" +
+                "- \\`@dependabot squash and merge\\` - Squash and merge";
+
               await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
-                body: `## Available PR Commands
-
-- \`/hold\` - Put PR on hold (adds 'do-not-merge/hold' label)
-- \`/unhold\` - Remove hold
-- \`/approve\` - Approve the PR
-- \`/lgtm\` - Approve with "Looks Good To Me" (adds 'lgtm' label)
-- \`/merge\` - Merge the PR (requires approval and passing checks)
-- \`/retest\` - Retrigger CI checks
-- \`/help\` - Show this help message
-
-**Dependabot Commands:**
-- \`@dependabot rebase\` - Rebase PR on latest main
-- \`@dependabot recreate\` - Recreate PR from scratch
-- \`@dependabot merge\` - Merge PR (if checks pass)
-- \`@dependabot squash and merge\` - Squash and merge`
+                body: helpMessage
               });
               return;
             }
