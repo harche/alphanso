@@ -1,3 +1,5 @@
+> **Note**: This is an example use case demonstrating Alphanso - The Agentic Convergence Framework. For an overview of the framework, its architecture, and other use cases, please see the [main README](../../README.md).
+
 # OpenShift Kubernetes Rebase Example
 
 This example demonstrates how Alphanso automates the complex process of rebasing OpenShift's Kubernetes fork against upstream Kubernetes releases.
