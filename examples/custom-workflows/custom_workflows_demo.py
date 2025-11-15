@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def demo_simple_workflow():
+def demo_simple_workflow() -> None:
     """Demo: Simple workflow without AI or validators."""
     logger.info("=" * 70)
     logger.info("DEMO 1: Simple Workflow (No AI, No Validators)")
@@ -66,7 +66,7 @@ def demo_simple_workflow():
     logger.info("")
 
 
-def demo_custom_retry_loop():
+def demo_custom_retry_loop() -> None:
     """Demo: Custom retry loop without AI intervention."""
     logger.info("=" * 70)
     logger.info("DEMO 2: Custom Retry Loop (Validators Only, No AI)")
@@ -128,7 +128,7 @@ def demo_custom_retry_loop():
     logger.info("")
 
 
-def demo_ai_first_workflow():
+def demo_ai_first_workflow() -> None:
     """Demo: Workflow that goes to AI immediately on failure."""
     logger.info("=" * 70)
     logger.info("DEMO 3: AI-First Workflow (Skip Validators)")
@@ -176,7 +176,7 @@ def demo_ai_first_workflow():
     logger.info("")
 
 
-def demo_default_topology():
+def demo_default_topology() -> None:
     """Demo: Using default topology (backward compatibility)."""
     logger.info("=" * 70)
     logger.info("DEMO 4: Default Topology (Backward Compatible)")
@@ -199,7 +199,7 @@ def demo_default_topology():
     logger.info("")
 
 
-def demo_complex_workflow():
+def demo_complex_workflow() -> None:
     """Demo: Complex workflow with all node types."""
     logger.info("=" * 70)
     logger.info("DEMO 5: Complex Workflow (All Node Types)")
@@ -256,7 +256,7 @@ def demo_complex_workflow():
     logger.info("")
 
 
-def main():
+def main() -> None:
     """Run all demos."""
     logger.info("")
     logger.info("╔" + "═" * 68 + "╗")
