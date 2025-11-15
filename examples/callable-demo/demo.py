@@ -120,11 +120,7 @@ async def check_format(working_dir: str | None = None, **kwargs: Any) -> None:
 async def main() -> None:
     """Run the callable demo using Alphanso API."""
     from alphanso.api import arun_convergence
-    from alphanso.config.schema import (
-        ConvergenceConfig,
-        MainScriptConfig,
-        PreActionConfig,
-    )
+    from alphanso.config.schema import ConvergenceConfig, MainScriptConfig, PreActionConfig
 
     print("=" * 70)
     print("CALLABLE DEMO - Using Python Functions with Alphanso")
