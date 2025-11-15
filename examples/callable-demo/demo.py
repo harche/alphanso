@@ -124,7 +124,6 @@ async def main() -> None:
         ConvergenceConfig,
         MainScriptConfig,
         PreActionConfig,
-        ValidatorConfig,
     )
 
     print("=" * 70)
