@@ -16,7 +16,7 @@
 
 ## Overview
 
-Alphanso is a production-grade Python framework that leverages agentic convergence loops to automate complex, iterative problem-solving workflows. Built on [LangGraph](https://github.com/langchain-ai/langgraph) state machine orchestration, it enables autonomous resolution of challenging tasks including dependency upgrades, code refactoring, infrastructure updates, and Kubernetes rebasing.
+Alphanso is a production-grade Python framework that leverages agentic convergence loops to automate complex, iterative problem-solving workflows. Built on [LangGraph](https://github.com/langchain-ai/langgraph) state machine orchestration, it enables autonomous resolution of challenging tasks including dependency upgrades, code refactoring, infrastructure updates, and complex merge conflict-prone rebasing of large repositories (e.g., Kubernetes rebasing to OpenShift fork).
 
 ## Workflow Architecture
 
