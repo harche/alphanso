@@ -295,7 +295,11 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
     logger.info("")
 
     # Run the script (command or callable) with timing
+    callable_metadata = None
     if callable_func:
+        from alphanso.utils.callable import get_callable_metadata
+
+        callable_metadata = get_callable_metadata(callable_func)
         result = await run_callable_async(
             callable_func, timeout=timeout, working_dir=working_dir, state=state
         )
@@ -331,6 +335,7 @@ async def run_main_script_node(state: ConvergenceState) -> dict[str, Any]:
         "stderr": result["stderr"][-2000:],
         "exit_code": result["exit_code"],
         "duration": duration,
+        "metadata": {"callable": callable_metadata} if callable_metadata else {},
     }
 
     logger.debug(f"📤 Exiting run_main_script_node | success={success}")
