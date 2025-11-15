@@ -51,59 +51,54 @@ python demo.py
 
 ### Example Output
 
-The demo shows a full workflow with callable validators:
+The demo shows a simple workflow with callable pre-actions and main script:
 
 ```
+======================================================================
+CALLABLE DEMO - Using Python Functions with Alphanso
+======================================================================
+
++  0.5s  alphanso.api               INFO      Starting convergence (async): Callable Demo
++  0.5s  alphanso.api               INFO      Working directory: /home/harshal/go/src/github.com/harche/alphanso
++  0.5s  alphanso.api               INFO      Max attempts: 5
++  0.5s  alphanso.api               INFO      Pre-actions: 2
++  0.5s  alphanso.api               INFO      Validators: 0
+
 # Pre-actions execute first
 +  0.5s  alphanso.graph.nodes       INFO      [1/2] Setup environment
 +  0.5s  alphanso.utils.callable    INFO      Executing callable: setup_environment
++  1.3s  alphanso.utils.callable    INFO      Callable setup_environment completed successfully in 0.80s
 +  1.3s  alphanso.graph.nodes       INFO           ✅ Success
++  1.3s  alphanso.graph.nodes       INFO           │ 🔧 Setting up environment in None
 
 +  1.3s  alphanso.graph.nodes       INFO      [2/2] Check dependencies
 +  1.3s  alphanso.utils.callable    INFO      Executing callable: check_dependencies
++  1.6s  alphanso.utils.callable    INFO      Callable check_dependencies completed successfully in 0.30s
 +  1.6s  alphanso.graph.nodes       INFO           ✅ Success
++  1.6s  alphanso.graph.nodes       INFO           │ 📦 Checking dependencies...
 
-# Main script fails on first attempt
+# Main script executes successfully
 +  1.6s  alphanso.graph.nodes       INFO      Running main script (attempt 1/5)...
++  1.6s  alphanso.graph.nodes       INFO      Description: Process data
 +  1.6s  alphanso.graph.nodes       INFO      Type: Python callable (process_data)
-+  1.6s  alphanso.utils.callable    ERROR     Callable process_data failed after 0.00s: Connection timeout
-+  1.6s  alphanso.graph.nodes       ERROR     ❌ Main script FAILED (exit code: 1, 0.00s)
++  1.6s  alphanso.graph.nodes       INFO      Timeout: 30.0s
++  1.6s  alphanso.utils.callable    INFO      Executing callable: process_data
++  2.6s  alphanso.utils.callable    INFO      Callable process_data completed successfully in 1.00s
++  2.6s  alphanso.graph.nodes       INFO      ✅ Main script SUCCEEDED (1.00s)
++  2.6s  alphanso.graph.nodes       INFO         │ 📊 Processing data in /home/harshal/go/src/github.com/harche/alphanso
 
-# AI agent investigates and fixes
-+  1.6s  alphanso.graph.nodes       INFO      Invoking Claude agent to investigate and fix failures...
-+ 28.2s  alphanso.agent.client      INFO      💭 Claude says: I've fixed the issue...
-
-# Callable validators run after AI fix
-+ 28.2s  alphanso.graph.nodes       INFO      NODE: validate (async)
-+ 28.2s  alphanso.graph.nodes       INFO      [1/2] Output Validation
-+ 28.2s  alphanso.validators.callable  INFO      Running callable validator: Output Validation
-+ 28.2s  alphanso.utils.callable    INFO      Executing callable: validate_output
-+ 28.5s  alphanso.utils.callable    INFO      Callable validate_output completed successfully in 0.30s
-+ 28.5s  alphanso.graph.nodes       INFO           ✅ Success (0.30s)
-
-+ 28.5s  alphanso.graph.nodes       INFO      [2/2] Format Check
-+ 28.5s  alphanso.validators.callable  INFO      Running callable validator: Format Check
-+ 28.5s  alphanso.utils.callable    INFO      Executing callable: check_format
-+ 28.7s  alphanso.utils.callable    INFO      Callable check_format completed successfully in 0.20s
-+ 28.7s  alphanso.graph.nodes       INFO           ✅ Success (0.20s)
-+ 28.7s  alphanso.graph.nodes       INFO      ✅ All validators PASSED
-
-# Validators passed, retry main script
-+ 28.7s  alphanso.graph.nodes       INFO      ✅ All validators passed
-+ 28.7s  alphanso.graph.nodes       INFO         Decision: RETRY main script (environment is healthy)
-+ 28.7s  alphanso.graph.nodes       INFO      📊 Attempt 1 → 2
-
-# Main script succeeds on retry
-+ 28.7s  alphanso.graph.nodes       INFO      Running main script (attempt 2/5)...
-+ 29.7s  alphanso.utils.callable    INFO      Callable process_data completed successfully in 1.00s
-+ 29.7s  alphanso.graph.nodes       INFO      ✅ Main script SUCCEEDED (1.00s)
++  2.6s  alphanso.api               INFO      ✅ Convergence completed successfully - main script succeeded
 
 ======================================================================
 RESULT
 ======================================================================
 Success: True
-Attempts: 1
+Attempts: 0
 ```
+
+**Note**: This demo focuses on showing how callable metadata (function signature, docstring,
+source location) is captured and included in AI prompts when failures occur. The workflow
+completes successfully to keep the demo simple and fast.
 
 ## How It Works
 

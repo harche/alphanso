@@ -51,8 +51,8 @@ async def process_data(
 ) -> str:
     """Main task that processes data.
 
-    This is the main script that gets retried until it succeeds.
-    Fails on first call, succeeds on second to demonstrate retry + validators.
+    Demonstrates how callable metadata (function signature, docstring, source)
+    is automatically captured and included in AI prompts when failures occur.
     """
     global _process_data_calls
     _process_data_calls += 1
@@ -64,20 +64,15 @@ async def process_data(
     print(f"📊 Processing data in {working_dir}")
     print(f"   Attempt: {current_attempt}/{max_attempts}")
 
-    # Fail on first call, succeed on second
-    if current_attempt == 1:
-        # Simulate a failure
-        print("❌ Data processing failed!")
-        raise RuntimeError("Connection timeout while fetching data")
-    else:
-        print("   - Loading data...")
-        await asyncio.sleep(0.5)
-        print("   - Transforming records...")
-        await asyncio.sleep(0.3)
-        print("   - Writing output...")
-        await asyncio.sleep(0.2)
-        print("✅ Data processing complete!")
-        return "Processed 1000 records"
+    # Always succeed to keep demo simple
+    print("   - Loading data...")
+    await asyncio.sleep(0.5)
+    print("   - Transforming records...")
+    await asyncio.sleep(0.3)
+    print("   - Writing output...")
+    await asyncio.sleep(0.2)
+    print("✅ Data processing complete!")
+    return "Processed 1000 records"
 
 
 async def simple_task(**kwargs: Any) -> None:
@@ -149,25 +144,12 @@ async def main() -> None:
         ],
         # Main script using callable
         main_script=MainScriptConfig(
-            callable=process_data,  # May fail to demonstrate retry + validators
+            callable=process_data,
             description="Process data",
             timeout=30.0,
         ),
-        # Validators using callables
-        validators=[
-            ValidatorConfig(
-                type="callable",
-                name="Output Validation",
-                callable=validate_output,
-                timeout=10.0,
-            ),
-            ValidatorConfig(
-                type="callable",
-                name="Format Check",
-                callable=check_format,
-                timeout=10.0,
-            ),
-        ],
+        # No validators for simplicity - just demonstrates callable metadata
+        validators=[],
     )
 
     # Run convergence
