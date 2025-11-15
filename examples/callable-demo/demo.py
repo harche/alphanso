@@ -12,8 +12,11 @@ Benefits of callables:
 """
 
 import asyncio
-import random
 from typing import Any
+
+# Global counters for demo purposes
+_process_data_calls = 0
+_validate_calls = 0
 
 
 # Pre-action callables
@@ -49,14 +52,24 @@ async def process_data(
     """Main task that processes data.
 
     This is the main script that gets retried until it succeeds.
-    It intentionally fails sometimes to demonstrate the retry mechanism.
+    Fails on first call, succeeds on second to demonstrate retry + validators.
     """
-    print(f"📊 Processing data in {working_dir}")
-    print(f"   Attempt: {state.get('attempt', 0) + 1}/{state.get('max_attempts', 10)}")
+    global _process_data_calls
+    _process_data_calls += 1
 
-    # Simulate a task that sometimes fails
-    success_rate = 0.6  # 60% success rate
-    if random.random() < success_rate:
+    # Get current attempt from state
+    current_attempt = state.get("attempt", 0) + 1 if state else 1
+    max_attempts = state.get("max_attempts", 10) if state else 10
+
+    print(f"📊 Processing data in {working_dir}")
+    print(f"   Attempt: {current_attempt}/{max_attempts}")
+
+    # Fail on first call, succeed on second
+    if current_attempt == 1:
+        # Simulate a failure
+        print("❌ Data processing failed!")
+        raise RuntimeError("Connection timeout while fetching data")
+    else:
         print("   - Loading data...")
         await asyncio.sleep(0.5)
         print("   - Transforming records...")
@@ -65,10 +78,6 @@ async def process_data(
         await asyncio.sleep(0.2)
         print("✅ Data processing complete!")
         return "Processed 1000 records"
-    else:
-        # Simulate a failure
-        print("❌ Data processing failed!")
-        raise RuntimeError("Connection timeout while fetching data")
 
 
 async def simple_task(**kwargs: Any) -> None:
@@ -83,22 +92,20 @@ async def validate_output(working_dir: str | None = None, **kwargs: Any) -> None
     """Validate that output meets requirements.
 
     Validators check conditions. They raise exceptions on failure.
+    Always passes for demo purposes.
     """
     print("🔍 Validating output...")
     await asyncio.sleep(0.3)
 
-    # Simulate validation checks
+    # Simulate validation checks - always pass
     checks = [
-        ("Output file exists", True),
-        ("Schema is valid", True),
-        ("Data integrity check", True),
+        "Output file exists",
+        "Schema is valid",
+        "Data integrity check",
     ]
 
-    for check_name, passes in checks:
-        if passes:
-            print(f"   ✓ {check_name}")
-        else:
-            raise AssertionError(f"{check_name} failed")
+    for check_name in checks:
+        print(f"   ✓ {check_name}")
 
     print("✅ All validations passed")
 
@@ -142,7 +149,7 @@ async def main() -> None:
         ],
         # Main script using callable
         main_script=MainScriptConfig(
-            callable=simple_task,  # Use simple_task for reliable demo
+            callable=process_data,  # May fail to demonstrate retry + validators
             description="Process data",
             timeout=30.0,
         ),
