@@ -5,10 +5,8 @@ enabling dynamic graph construction from configuration.
 """
 
 import logging
-from collections.abc import Awaitable, Callable
-from typing import Any
 
-from alphanso.graph.state import ConvergenceState
+from alphanso.graph.nodes import WorkflowNode
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +25,19 @@ class NodeRegistry:
         ['pre_actions', 'run_main_script', 'validate', 'ai_fix', 'custom_node']
     """
 
-    _nodes: dict[str, Callable[[ConvergenceState], Awaitable[dict[str, Any]]]] = {}
+    _nodes: dict[str, WorkflowNode] = {}
 
     @classmethod
     def register(
         cls,
         node_type: str,
-        func: Callable[[ConvergenceState], Awaitable[dict[str, Any]]],
+        func: WorkflowNode,
     ) -> None:
         """Register a node implementation.
 
         Args:
             node_type: Unique identifier for the node type
-            func: Async function implementing the node logic
+            func: Workflow node implementing the WorkflowNode protocol
                   Must have signature: async (state: ConvergenceState) -> dict[str, Any]
 
         Raises:
@@ -57,14 +55,14 @@ class NodeRegistry:
         logger.debug(f"Registered node type: {node_type}")
 
     @classmethod
-    def get(cls, node_type: str) -> Callable[[ConvergenceState], Awaitable[dict[str, Any]]]:
+    def get(cls, node_type: str) -> WorkflowNode:
         """Get node implementation by type.
 
         Args:
             node_type: Node type identifier
 
         Returns:
-            Node implementation function
+            Node implementation conforming to WorkflowNode protocol
 
         Raises:
             ValueError: If node_type is not registered

@@ -5,8 +5,8 @@ for the convergence workflow.
 """
 
 import logging
-from collections.abc import Awaitable, Callable
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -15,6 +15,7 @@ from alphanso.config.schema import EdgeConfig, WorkflowConfig
 from alphanso.graph.conditions import ConditionRegistry
 from alphanso.graph.edges import check_main_script, check_pre_actions, should_continue
 from alphanso.graph.nodes import (
+    WorkflowNode,
     ai_fix_node,
     decide_node,
     increment_attempt_node,
@@ -259,6 +260,7 @@ def build_from_config(workflow_config: WorkflowConfig) -> ConvergenceGraph:
     logger.info(f"Adding {len(workflow_config.nodes)} nodes to graph")
     for node_config in workflow_config.nodes:
         node_func = NodeRegistry.get(node_config.type)
+        # LangGraph accepts callables that match the WorkflowNode protocol
         graph.add_node(node_config.name, node_func)
         logger.debug(f"  Added node: {node_config.name} (type={node_config.type})")
 
@@ -312,12 +314,12 @@ def _add_edge_to_graph(
         if isinstance(to_node, list):
             # Multiple targets - build mapping
             # Infer mapping from target names (assumes condition returns matching strings)
-            mapping = {target: target for target in to_node}
-            graph.add_conditional_edges(from_node, condition_func, mapping)
+            mapping = {cast(Any, target): target for target in to_node}
+            graph.add_conditional_edges(from_node, cast(Any, condition_func), mapping)
             logger.debug(f"  Added conditional edge: {from_node} --[{condition}]--> {to_node}")
         else:
             # Single target with condition
-            graph.add_conditional_edges(from_node, condition_func, {to_node: to_node})
+            graph.add_conditional_edges(from_node, cast(Any, condition_func), {to_node: to_node})
             logger.debug(f"  Added conditional edge: {from_node} --[{condition}]--> {to_node}")
     else:
         # Unconditional edge
@@ -411,15 +413,14 @@ def register_condition(name: str, func: Callable[[ConvergenceState], str]) -> No
     ConditionRegistry.register(name, func)
 
 
-def register_node(
-    node_type: str, func: Callable[[ConvergenceState], Awaitable[dict[str, Any]]]
-) -> None:
+def register_node(node_type: str, func: WorkflowNode) -> None:
     """Register a custom node implementation.
 
     Helper function to register nodes with the NodeRegistry.
 
     Args:
         node_type: Node type identifier
-        func: Node function with signature async (state: ConvergenceState) -> dict[str, Any]
+        func: Node function conforming to WorkflowNode protocol
+              Signature: async (state: ConvergenceState) -> dict[str, Any]
     """
     NodeRegistry.register(node_type, func)

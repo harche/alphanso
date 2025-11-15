@@ -4,7 +4,7 @@ This module contains the node functions that make up the convergence state graph
 """
 
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from alphanso.actions.pre_actions import PreAction, PreActionResult
 from alphanso.agent.client import ConvergenceAgent
@@ -21,6 +21,27 @@ from alphanso.validators import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class WorkflowNode(Protocol):
+    """Protocol for workflow node functions.
+
+    All workflow nodes must be async functions that take a ConvergenceState
+    and return a dict of state updates.
+
+    This is a static typing protocol only - it doesn't affect runtime behavior.
+    """
+
+    async def __call__(self, state: ConvergenceState) -> dict[str, Any]:
+        """Execute the node logic.
+
+        Args:
+            state: Current convergence state
+
+        Returns:
+            Dictionary of state updates to merge into the state
+        """
+        ...
 
 
 def create_validators(
