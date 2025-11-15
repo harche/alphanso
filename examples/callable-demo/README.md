@@ -51,54 +51,58 @@ python demo.py
 
 ### Example Output
 
-```
-======================================================================
-CALLABLE DEMO - Using Python Functions with Alphanso
-======================================================================
+The demo shows a full workflow with callable validators:
 
-+  0.5s  alphanso.api               INFO      ======================================================================
-+  0.5s  alphanso.api               INFO      Starting convergence (async): Callable Demo
-+  0.5s  alphanso.api               INFO      ======================================================================
-+  0.5s  alphanso.api               INFO      Working directory: /home/harshal/go/src/github.com/harche/alphanso/examples/callable-demo
-+  0.5s  alphanso.api               INFO      Max attempts: 5
-+  0.5s  alphanso.api               INFO      Pre-actions: 2
-+  0.5s  alphanso.api               INFO      Validators: 2
-+  0.5s  alphanso.graph.nodes       INFO      ======================================================================
-+  0.5s  alphanso.graph.nodes       INFO      NODE: pre_actions
-+  0.5s  alphanso.graph.nodes       INFO      ======================================================================
-+  0.5s  alphanso.graph.nodes       INFO      Running pre-actions to set up environment...
+```
+# Pre-actions execute first
 +  0.5s  alphanso.graph.nodes       INFO      [1/2] Setup environment
-+  0.5s  alphanso.actions.pre_actions  INFO      Pre-action (async): Setup environment
 +  0.5s  alphanso.utils.callable    INFO      Executing callable: setup_environment
-+  1.3s  alphanso.utils.callable    INFO      Callable setup_environment completed successfully in 0.80s
 +  1.3s  alphanso.graph.nodes       INFO           ✅ Success
-+  1.3s  alphanso.graph.nodes       INFO           │ 🔧 Setting up environment in None
+
 +  1.3s  alphanso.graph.nodes       INFO      [2/2] Check dependencies
-+  1.3s  alphanso.actions.pre_actions  INFO      Pre-action (async): Check dependencies
 +  1.3s  alphanso.utils.callable    INFO      Executing callable: check_dependencies
-+  1.6s  alphanso.utils.callable    INFO      Callable check_dependencies completed successfully in 0.30s
 +  1.6s  alphanso.graph.nodes       INFO           ✅ Success
-+  1.6s  alphanso.graph.nodes       INFO           │ 📦 Checking dependencies...
-+  1.6s  alphanso.graph.nodes       INFO      ======================================================================
-+  1.6s  alphanso.graph.nodes       INFO      NODE: run_main_script (async)
-+  1.6s  alphanso.graph.nodes       INFO      ======================================================================
+
+# Main script fails on first attempt
 +  1.6s  alphanso.graph.nodes       INFO      Running main script (attempt 1/5)...
-+  1.6s  alphanso.graph.nodes       INFO      Description: Process data
-+  1.6s  alphanso.graph.nodes       INFO      Type: Python callable (simple_task)
-+  1.6s  alphanso.graph.nodes       INFO      Timeout: 30.0s
-+  1.6s  alphanso.utils.callable    INFO      Executing callable: simple_task
-+  2.1s  alphanso.utils.callable    INFO      Callable simple_task completed successfully in 0.50s
-+  2.1s  alphanso.graph.nodes       INFO      ✅ Main script SUCCEEDED (0.50s)
-+  2.1s  alphanso.graph.nodes       INFO         │ 🎯 Running simple task...
-+  2.1s  alphanso.api               INFO      ======================================================================
-+  2.1s  alphanso.api               INFO      ✅ Convergence completed successfully - main script succeeded
-+  2.1s  alphanso.api               INFO      ======================================================================
++  1.6s  alphanso.graph.nodes       INFO      Type: Python callable (process_data)
++  1.6s  alphanso.utils.callable    ERROR     Callable process_data failed after 0.00s: Connection timeout
++  1.6s  alphanso.graph.nodes       ERROR     ❌ Main script FAILED (exit code: 1, 0.00s)
+
+# AI agent investigates and fixes
++  1.6s  alphanso.graph.nodes       INFO      Invoking Claude agent to investigate and fix failures...
++ 28.2s  alphanso.agent.client      INFO      💭 Claude says: I've fixed the issue...
+
+# Callable validators run after AI fix
++ 28.2s  alphanso.graph.nodes       INFO      NODE: validate (async)
++ 28.2s  alphanso.graph.nodes       INFO      [1/2] Output Validation
++ 28.2s  alphanso.validators.callable  INFO      Running callable validator: Output Validation
++ 28.2s  alphanso.utils.callable    INFO      Executing callable: validate_output
++ 28.5s  alphanso.utils.callable    INFO      Callable validate_output completed successfully in 0.30s
++ 28.5s  alphanso.graph.nodes       INFO           ✅ Success (0.30s)
+
++ 28.5s  alphanso.graph.nodes       INFO      [2/2] Format Check
++ 28.5s  alphanso.validators.callable  INFO      Running callable validator: Format Check
++ 28.5s  alphanso.utils.callable    INFO      Executing callable: check_format
++ 28.7s  alphanso.utils.callable    INFO      Callable check_format completed successfully in 0.20s
++ 28.7s  alphanso.graph.nodes       INFO           ✅ Success (0.20s)
++ 28.7s  alphanso.graph.nodes       INFO      ✅ All validators PASSED
+
+# Validators passed, retry main script
++ 28.7s  alphanso.graph.nodes       INFO      ✅ All validators passed
++ 28.7s  alphanso.graph.nodes       INFO         Decision: RETRY main script (environment is healthy)
++ 28.7s  alphanso.graph.nodes       INFO      📊 Attempt 1 → 2
+
+# Main script succeeds on retry
++ 28.7s  alphanso.graph.nodes       INFO      Running main script (attempt 2/5)...
++ 29.7s  alphanso.utils.callable    INFO      Callable process_data completed successfully in 1.00s
++ 29.7s  alphanso.graph.nodes       INFO      ✅ Main script SUCCEEDED (1.00s)
 
 ======================================================================
 RESULT
 ======================================================================
 Success: True
-Attempts: 0
+Attempts: 1
 ```
 
 ## How It Works
