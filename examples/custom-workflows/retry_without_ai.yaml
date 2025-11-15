@@ -1,0 +1,84 @@
+# Retry Without AI Example
+#
+# This workflow demonstrates a custom topology where the main script
+# retries automatically without AI intervention, using only validators
+# to check health.
+
+name: retry-without-ai
+max_attempts: 5
+
+# Custom workflow: Retry main script without AI fix
+workflow:
+  nodes:
+    - type: pre_actions
+      name: setup
+
+    - type: run_main_script
+      name: main
+
+    - type: validate
+      name: health_check
+
+    - type: decide
+      name: decide
+
+    - type: increment_attempt
+      name: increment
+
+  edges:
+    # START -> setup
+    - from_node: START
+      to_node: setup
+
+    # setup -> main or END
+    - from_node: setup
+      to_node: [main, END]
+      condition: check_pre_actions
+
+    # main -> END (success) or health_check (failure)
+    - from_node: main
+      to_node: [END, health_check]
+      condition: check_main_script
+
+    # health_check -> decide
+    - from_node: health_check
+      to_node: decide
+
+    # decide -> increment or END
+    - from_node: decide
+      to_node: [increment, END]
+      condition: should_continue
+
+    # increment -> main (always retry main, no AI fix)
+    - from_node: increment
+      to_node: main
+
+# Pre-actions
+pre_actions:
+  - command: "echo 'Initializing...'"
+    description: "Initialize"
+
+# Main script (might fail occasionally)
+main_script:
+  command: |
+    echo "Attempt $RANDOM..."
+    # Simulate random success/failure
+    if [ $((RANDOM % 3)) -eq 0 ]; then
+      echo "Success!"
+      exit 0
+    else
+      echo "Failed, will retry..."
+      exit 1
+    fi
+  description: "Main script with random failures"
+  timeout: 10
+
+# Validators
+validators:
+  - type: command
+    name: health-check
+    command: "echo 'System is healthy' && exit 0"
+    timeout: 5
+
+# Working directory
+working_directory: "/tmp/alphanso-retry-demo"
