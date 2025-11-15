@@ -1,0 +1,47 @@
+# Simple Custom Workflow Example
+#
+# This example demonstrates a minimal custom workflow with just
+# pre-actions and main script, without validators or AI fix.
+
+name: simple-custom-workflow
+max_attempts: 3
+
+# Define custom workflow topology
+workflow:
+  nodes:
+    - type: pre_actions
+      name: setup
+
+    - type: run_main_script
+      name: main_task
+
+  edges:
+    # START -> setup
+    - from_node: START
+      to_node: setup
+
+    # setup -> main_task or END (conditional)
+    - from_node: setup
+      to_node: [main_task, END]
+      condition: check_pre_actions
+
+    # main_task -> END (success or failure, no retry)
+    - from_node: main_task
+      to_node: END
+
+# Pre-actions configuration
+pre_actions:
+  - command: "echo 'Setting up workspace...'"
+    description: "Setup workspace"
+
+  - command: "mkdir -p /tmp/alphanso-simple-demo"
+    description: "Create demo directory"
+
+# Main script configuration
+main_script:
+  command: "echo 'Running main task...' && echo 'Task completed successfully!'"
+  description: "Main task execution"
+  timeout: 60
+
+# Working directory
+working_directory: "/tmp/alphanso-simple-demo"

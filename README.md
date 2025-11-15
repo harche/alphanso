@@ -41,6 +41,47 @@ run_main_script
 
 The workflow begins with one-time setup operations (pre-actions such as cloning repositories or fetching remotes). Upon successful setup, the main script executes. When failures occur, the AI agent investigates and applies corrective measures. Validators verify environment health before retrying. This cycle continues until the main script succeeds or the maximum attempt threshold is reached.
 
+### Custom Workflows
+
+Alphanso supports **custom workflow topologies** that can be defined via configuration. You can create workflows optimized for your specific use case by customizing which nodes to include, their order, and routing logic.
+
+**Built-in node types:**
+- `pre_actions` - One-time setup commands
+- `run_main_script` - Primary goal to retry
+- `validate` - Run health checks
+- `ai_fix` - AI agent investigation and fixing
+- `increment_attempt` - Track retry attempts
+- `decide` - Routing based on validation results
+
+**Example custom workflow:**
+```yaml
+workflow:
+  nodes:
+    - type: pre_actions
+      name: setup
+    - type: run_main_script
+      name: main
+    - type: ai_fix
+      name: ai_helper
+  edges:
+    - from_node: setup
+      to_node: main
+    - from_node: main
+      to_node: [END, ai_helper]
+      condition: check_main_script
+    - from_node: ai_helper
+      to_node: main
+  entry_point: setup
+```
+
+See [examples/custom-workflows/](examples/custom-workflows/) for more examples including:
+- Simple workflows without AI or validators
+- Retry loops with validators only
+- AI-first workflows that skip validation
+- And more!
+
+**Backward Compatibility:** If no `workflow` is specified in your config, Alphanso uses the default topology shown above. All existing configs continue to work unchanged.
+
 ## Use Cases
 
 Alphanso automates complex, iterative workflows that traditionally require extensive manual intervention:

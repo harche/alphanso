@@ -1,0 +1,73 @@
+# Direct AI Fix Example
+#
+# This workflow demonstrates going directly to AI fix without validators.
+# When the main script fails, AI immediately investigates and fixes.
+
+name: direct-ai-fix
+max_attempts: 3
+
+# Custom workflow: Direct path to AI without validation step
+workflow:
+  nodes:
+    - type: pre_actions
+      name: setup
+
+    - type: run_main_script
+      name: main
+
+    - type: ai_fix
+      name: ai_fix
+
+    - type: increment_attempt
+      name: increment
+
+  edges:
+    # START -> setup
+    - from_node: START
+      to_node: setup
+
+    # setup -> main or END
+    - from_node: setup
+      to_node: [main, END]
+      condition: check_pre_actions
+
+    # main -> END (success) or ai_fix (failure)
+    - from_node: main
+      to_node: [END, ai_fix]
+      condition: check_main_script
+
+    # ai_fix -> increment
+    - from_node: ai_fix
+      to_node: increment
+
+    # increment -> main (retry after AI fix)
+    - from_node: increment
+      to_node: main
+
+# Pre-actions
+pre_actions:
+  - command: "mkdir -p /tmp/alphanso-ai-demo"
+    description: "Create workspace"
+
+  - command: "echo 'print(\"Hello from Python\")' > /tmp/alphanso-ai-demo/script.py"
+    description: "Create initial script"
+
+# Main script (will fail initially)
+main_script:
+  command: |
+    cd /tmp/alphanso-ai-demo
+    # This will fail because we're missing a requirement
+    python -c "import numpy; print('Success!')"
+  description: "Run Python script (requires numpy)"
+  timeout: 30
+
+# No validators - go straight to AI on failure
+
+# Agent configuration
+agent:
+  type: claude-agent-sdk
+  claude:
+    model: claude-sonnet-4-5@20250929
+
+# Working directory
+working_directory: "/tmp/alphanso-ai-demo"

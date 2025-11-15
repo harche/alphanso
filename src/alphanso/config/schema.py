@@ -201,6 +201,67 @@ class RetryStrategyConfig(BaseModel):
     )
 
 
+class NodeConfig(BaseModel):
+    """Configuration for a workflow node.
+
+    Nodes are the building blocks of a workflow. Each node has a type
+    (which determines its implementation) and a unique name.
+
+    Attributes:
+        type: Node type (pre_actions, run_main_script, validate, ai_fix, increment_attempt, decide)
+        name: Unique identifier for this node instance
+        config: Optional node-specific configuration (reserved for future use)
+    """
+
+    type: str = Field(..., description="Node type")
+    name: str = Field(..., min_length=1, description="Unique node identifier")
+    config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Node-specific configuration",
+    )
+
+
+class EdgeConfig(BaseModel):
+    """Configuration for a workflow edge.
+
+    Edges connect nodes and define the flow of execution. They can be
+    unconditional (always follow the edge) or conditional (route based
+    on a condition function).
+
+    Attributes:
+        from_node: Source node name (or 'START' for entry edges)
+        to_node: Target node name(s) (or 'END' for exit edges)
+        condition: Optional condition function name for conditional routing
+    """
+
+    from_node: str = Field(..., description="Source node name or 'START'")
+    to_node: str | list[str] = Field(..., description="Target node name(s) or 'END'")
+    condition: str | None = Field(
+        default=None,
+        description="Condition function name for conditional routing",
+    )
+
+
+class WorkflowConfig(BaseModel):
+    """Custom workflow topology configuration.
+
+    Defines a custom graph structure by specifying nodes and edges.
+    If not provided, the default hardcoded topology will be used.
+
+    Attributes:
+        nodes: List of node definitions
+        edges: List of edge definitions
+        entry_point: First node to execute after START (default: first node in nodes list)
+    """
+
+    nodes: list[NodeConfig] = Field(..., min_length=1, description="Workflow nodes")
+    edges: list[EdgeConfig] = Field(default_factory=list, description="Workflow edges")
+    entry_point: str | None = Field(
+        default=None,
+        description="Entry point node name (defaults to first node)",
+    )
+
+
 class ConvergenceConfig(BaseModel):
     """Main configuration for Alphanso convergence loop.
 
@@ -216,6 +277,7 @@ class ConvergenceConfig(BaseModel):
         agent: Agent configuration
         retry_strategy: Retry strategy configuration
         working_directory: Working directory for execution
+        workflow: Optional custom workflow topology (uses default if not provided)
     """
 
     name: str = Field(..., min_length=1, description="Configuration name")
@@ -248,6 +310,10 @@ class ConvergenceConfig(BaseModel):
     working_directory: str = Field(
         default=".",
         description="Working directory for command execution",
+    )
+    workflow: WorkflowConfig | None = Field(
+        default=None,
+        description="Custom workflow topology (uses default hardcoded topology if not provided)",
     )
 
     @classmethod

@@ -170,7 +170,7 @@ async def arun_convergence(
 
     # Create and execute convergence graph
     logger.info("Creating convergence state graph...")
-    graph = create_convergence_graph()
+    graph = create_convergence_graph(config.workflow)
 
     # Calculate recursion limit based on max_attempts
     recursion_limit = config.max_attempts * 6 + 10
