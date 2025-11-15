@@ -5,7 +5,7 @@ enabling dynamic graph construction from configuration.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from alphanso.graph.state import ConvergenceState
@@ -27,13 +27,13 @@ class NodeRegistry:
         ['pre_actions', 'run_main_script', 'validate', 'ai_fix', 'custom_node']
     """
 
-    _nodes: dict[str, Callable[[ConvergenceState], dict[str, Any]]] = {}
+    _nodes: dict[str, Callable[[ConvergenceState], Awaitable[dict[str, Any]]]] = {}
 
     @classmethod
     def register(
         cls,
         node_type: str,
-        func: Callable[[ConvergenceState], dict[str, Any]],
+        func: Callable[[ConvergenceState], Awaitable[dict[str, Any]]],
     ) -> None:
         """Register a node implementation.
 
@@ -57,7 +57,7 @@ class NodeRegistry:
         logger.debug(f"Registered node type: {node_type}")
 
     @classmethod
-    def get(cls, node_type: str) -> Callable[[ConvergenceState], dict[str, Any]]:
+    def get(cls, node_type: str) -> Callable[[ConvergenceState], Awaitable[dict[str, Any]]]:
         """Get node implementation by type.
 
         Args:
@@ -75,9 +75,7 @@ class NodeRegistry:
         """
         if node_type not in cls._nodes:
             available = ", ".join(cls.list_types())
-            raise ValueError(
-                f"Unknown node type: '{node_type}'. Available types: {available}"
-            )
+            raise ValueError(f"Unknown node type: '{node_type}'. Available types: {available}")
 
         return cls._nodes[node_type]
 

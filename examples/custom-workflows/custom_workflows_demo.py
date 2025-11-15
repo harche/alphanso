@@ -5,7 +5,6 @@ This script demonstrates how to programmatically create and use custom
 workflow topologies with Alphanso.
 """
 
-import asyncio
 import logging
 
 from alphanso.config.schema import (
@@ -50,13 +49,9 @@ def demo_simple_workflow():
         name="simple-workflow-demo",
         max_attempts=1,
         pre_actions=[
-            PreActionConfig(
-                command="echo 'Setting up...'", description="Setup workspace"
-            )
+            PreActionConfig(command="echo 'Setting up...'", description="Setup workspace")
         ],
-        main_script=MainScriptConfig(
-            command="echo 'Task completed!'", description="Main task"
-        ),
+        main_script=MainScriptConfig(command="echo 'Task completed!'", description="Main task"),
         workflow=workflow,
     )
 
@@ -110,9 +105,7 @@ def demo_custom_retry_loop():
     config = ConvergenceConfig(
         name="custom-retry-loop",
         max_attempts=5,
-        pre_actions=[
-            PreActionConfig(command="echo 'Initializing...'", description="Init")
-        ],
+        pre_actions=[PreActionConfig(command="echo 'Initializing...'", description="Init")],
         main_script=MainScriptConfig(
             command="echo 'Executing task...'", description="Execute task"
         ),
@@ -168,12 +161,8 @@ def demo_ai_first_workflow():
     config = ConvergenceConfig(
         name="ai-first-workflow",
         max_attempts=3,
-        pre_actions=[
-            PreActionConfig(command="echo 'Setup complete'", description="Setup")
-        ],
-        main_script=MainScriptConfig(
-            command="echo 'Running...'", description="Main script"
-        ),
+        pre_actions=[PreActionConfig(command="echo 'Setup complete'", description="Setup")],
+        main_script=MainScriptConfig(command="echo 'Running...'", description="Main script"),
         agent=AgentConfig(),
         workflow=workflow,
     )
@@ -196,17 +185,9 @@ def demo_default_topology():
     config = ConvergenceConfig(
         name="default-topology-demo",
         max_attempts=10,
-        pre_actions=[
-            PreActionConfig(command="echo 'Setup'", description="Setup step")
-        ],
-        main_script=MainScriptConfig(
-            command="echo 'Main script'", description="Main script"
-        ),
-        validators=[
-            ValidatorConfig(
-                type="command", name="test", command="echo 'Tests pass'"
-            )
-        ],
+        pre_actions=[PreActionConfig(command="echo 'Setup'", description="Setup step")],
+        main_script=MainScriptConfig(command="echo 'Main script'", description="Main script"),
+        validators=[ValidatorConfig(type="command", name="test", command="echo 'Tests pass'")],
         # No workflow specified - uses default
     )
 
@@ -240,9 +221,7 @@ def demo_complex_workflow():
                 to_node=["main", "END"],
                 condition="check_pre_actions",
             ),
-            EdgeConfig(
-                from_node="main", to_node=["END", "ai"], condition="check_main_script"
-            ),
+            EdgeConfig(from_node="main", to_node=["END", "ai"], condition="check_main_script"),
             EdgeConfig(from_node="ai", to_node="validate"),
             EdgeConfig(from_node="validate", to_node="decide"),
             EdgeConfig(

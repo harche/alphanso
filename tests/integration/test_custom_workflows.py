@@ -1,7 +1,5 @@
 """Integration tests for custom workflow execution."""
 
-import pytest
-
 from alphanso.config.schema import (
     AgentConfig,
     ConvergenceConfig,
@@ -43,12 +41,8 @@ class TestCustomWorkflowExecution:
         config = ConvergenceConfig(
             name="simple-success-workflow",
             max_attempts=3,
-            pre_actions=[
-                PreActionConfig(command="echo 'setup'", description="Setup step")
-            ],
-            main_script=MainScriptConfig(
-                command="echo 'success'", description="Main script"
-            ),
+            pre_actions=[PreActionConfig(command="echo 'setup'", description="Setup step")],
+            main_script=MainScriptConfig(command="echo 'success'", description="Main script"),
             validators=[],
             agent=AgentConfig(),
             workflow=workflow,
@@ -133,12 +127,8 @@ class TestCustomWorkflowExecution:
         config = ConvergenceConfig(
             name="workflow-with-validators",
             max_attempts=3,
-            pre_actions=[
-                PreActionConfig(command="echo 'setup'", description="Setup")
-            ],
-            main_script=MainScriptConfig(
-                command="echo 'main'", description="Main script"
-            ),
+            pre_actions=[PreActionConfig(command="echo 'setup'", description="Setup")],
+            main_script=MainScriptConfig(command="echo 'main'", description="Main script"),
             validators=[
                 ValidatorConfig(
                     type="command",
@@ -168,9 +158,7 @@ class TestCustomWorkflowExecution:
         config = ConvergenceConfig(
             name="minimal-workflow",
             max_attempts=1,
-            main_script=MainScriptConfig(
-                command="echo 'done'", description="Just run this"
-            ),
+            main_script=MainScriptConfig(command="echo 'done'", description="Just run this"),
             workflow=workflow,
         )
 
@@ -298,9 +286,7 @@ class TestDefaultTopologyIntegration:
             name="default-topology-test",
             max_attempts=3,
             pre_actions=[PreActionConfig(command="echo 'setup'", description="Setup")],
-            main_script=MainScriptConfig(
-                command="echo 'main'", description="Main script"
-            ),
+            main_script=MainScriptConfig(command="echo 'main'", description="Main script"),
             validators=[
                 ValidatorConfig(
                     type="command",

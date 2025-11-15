@@ -3,10 +3,7 @@
 import pytest
 
 from alphanso.config.schema import EdgeConfig, NodeConfig, WorkflowConfig
-from alphanso.graph.builder import (
-    build_from_config,
-    validate_topology,
-)
+from alphanso.graph.builder import build_from_config, validate_topology
 from alphanso.graph.conditions import ConditionRegistry
 from alphanso.graph.registry import NodeRegistry
 
@@ -216,8 +213,10 @@ class TestTopologyValidation:
 
     def test_empty_nodes_raises(self):
         """Test that workflow with no nodes raises ValueError."""
-        # Pydantic should enforce min_items=1, but let's test validation too
-        with pytest.raises(Exception):  # Pydantic or our validation
+        # Pydantic should enforce min_length=1
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
             WorkflowConfig(nodes=[], edges=[])
 
     def test_invalid_entry_point_raises(self):

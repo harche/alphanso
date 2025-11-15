@@ -6,7 +6,6 @@ enabling dynamic conditional edge construction from configuration.
 
 import logging
 from collections.abc import Callable
-from typing import Any
 
 from alphanso.graph.state import ConvergenceState
 
@@ -76,9 +75,7 @@ class ConditionRegistry:
         """
         if name not in cls._conditions:
             available = ", ".join(cls.list_conditions())
-            raise ValueError(
-                f"Unknown condition: '{name}'. Available conditions: {available}"
-            )
+            raise ValueError(f"Unknown condition: '{name}'. Available conditions: {available}")
 
         return cls._conditions[name]
 
@@ -130,19 +127,13 @@ def register_builtin_conditions() -> None:
     from the edges module. It should be called during module initialization.
     """
     # Import here to avoid circular dependencies
-    from alphanso.graph.edges import (
-        check_main_script,
-        check_pre_actions,
-        should_continue,
-    )
+    from alphanso.graph.edges import check_main_script, check_pre_actions, should_continue
 
     ConditionRegistry.register("check_pre_actions", check_pre_actions)
     ConditionRegistry.register("check_main_script", check_main_script)
     ConditionRegistry.register("should_continue", should_continue)
 
-    logger.info(
-        f"Registered {len(ConditionRegistry.list_conditions())} built-in conditions"
-    )
+    logger.info(f"Registered {len(ConditionRegistry.list_conditions())} built-in conditions")
 
 
 # Register built-in conditions when module is imported

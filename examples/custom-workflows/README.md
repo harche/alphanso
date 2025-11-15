@@ -98,18 +98,18 @@ workflow:
 alphanso run examples/custom-workflows/direct_ai_fix.yaml
 ```
 
-### 4. Python Demo (`demo.py`)
+### 4. Python Demo (`custom_workflows_demo.py`)
 
 A Python script demonstrating programmatic creation of custom workflows.
 
 **Run it:**
 ```bash
-python examples/custom-workflows/demo.py
+python examples/custom-workflows/custom_workflows_demo.py
 ```
 
 **Or:**
 ```bash
-./examples/custom-workflows/demo.py
+./examples/custom-workflows/custom_workflows_demo.py
 ```
 
 ## Built-in Node Types
