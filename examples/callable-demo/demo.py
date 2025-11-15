@@ -58,8 +58,8 @@ async def process_data(
     _process_data_calls += 1
 
     # Get current attempt from state
-    current_attempt = state.get('attempt', 0) + 1 if state else 1
-    max_attempts = state.get('max_attempts', 10) if state else 10
+    current_attempt = state.get("attempt", 0) + 1 if state else 1
+    max_attempts = state.get("max_attempts", 10) if state else 10
 
     print(f"📊 Processing data in {working_dir}")
     print(f"   Attempt: {current_attempt}/{max_attempts}")
@@ -99,12 +99,12 @@ async def validate_output(working_dir: str | None = None, **kwargs: Any) -> None
 
     # Simulate validation checks - always pass
     checks = [
-        ("Output file exists", True),
-        ("Schema is valid", True),
-        ("Data integrity check", True),
+        "Output file exists",
+        "Schema is valid",
+        "Data integrity check",
     ]
 
-    for check_name, passes in checks:
+    for check_name in checks:
         print(f"   ✓ {check_name}")
 
     print("✅ All validations passed")
