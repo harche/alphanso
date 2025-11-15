@@ -5,6 +5,7 @@ function-based workflows alongside command-based workflows in convergence tasks.
 """
 
 import asyncio
+import inspect
 import io
 import logging
 import sys
@@ -16,6 +17,35 @@ from typing import Any
 from alphanso.utils.subprocess import SubprocessResult
 
 logger = logging.getLogger(__name__)
+
+
+def get_callable_metadata(func: Callable[..., Any]) -> dict[str, Any]:
+    """Extract metadata from a callable for debugging and AI context.
+
+    Args:
+        func: The callable to extract metadata from
+
+    Returns:
+        Dictionary with function name, docstring, signature, and source info
+    """
+    metadata: dict[str, Any] = {
+        "name": func.__name__,
+        "docstring": inspect.getdoc(func) or "",
+        "signature": str(inspect.signature(func)),
+    }
+
+    # Try to get source file info
+    try:
+        metadata["source_file"] = inspect.getfile(func)
+        source_lines, start_line = inspect.getsourcelines(func)
+        metadata["source_line"] = start_line  # int is fine for dict[str, Any]
+        # Include first few lines of source for context
+        metadata["source_preview"] = "".join(source_lines[:10])
+    except (TypeError, OSError):
+        # Built-in functions or dynamically created functions may not have source
+        pass
+
+    return metadata
 
 
 async def run_callable_async(

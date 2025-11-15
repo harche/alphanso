@@ -85,6 +85,21 @@ def build_user_message(state: ConvergenceState) -> str:
             if command:
                 message += f"Command: `{command}`\n"
 
+            # If this is a callable validator, include function metadata
+            callable_meta = result.get("metadata", {}).get("callable")
+            if callable_meta:
+                message += "\n**Callable Information:**\n"
+                message += f"- Function: `{callable_meta.get('name', 'unknown')}`\n"
+                message += f"- Signature: `{callable_meta.get('signature', 'N/A')}`\n"
+                if callable_meta.get("docstring"):
+                    message += f"- Documentation:\n```\n{callable_meta['docstring']}\n```\n"
+                if callable_meta.get("source_file"):
+                    message += f"- Source: `{callable_meta['source_file']}:{callable_meta.get('source_line', '?')}`\n"
+                if callable_meta.get("source_preview"):
+                    message += (
+                        f"- Code Preview:\n```python\n{callable_meta['source_preview']}\n```\n"
+                    )
+
             message += "\n"
 
             # Include stdout (truncated to last N lines)
@@ -108,6 +123,22 @@ def build_user_message(state: ConvergenceState) -> str:
             command = main_script_result.get("command", "")
             if command:
                 message += f"**Command:** `{command}`\n"
+
+            # If this is a callable, include function metadata
+            callable_meta = main_script_result.get("metadata", {}).get("callable")
+            if callable_meta:
+                message += "\n**Callable Information:**\n"
+                message += f"- Function: `{callable_meta.get('name', 'unknown')}`\n"
+                message += f"- Signature: `{callable_meta.get('signature', 'N/A')}`\n"
+                if callable_meta.get("docstring"):
+                    message += f"- Documentation:\n```\n{callable_meta['docstring']}\n```\n"
+                if callable_meta.get("source_file"):
+                    message += f"- Source: `{callable_meta['source_file']}:{callable_meta.get('source_line', '?')}`\n"
+                if callable_meta.get("source_preview"):
+                    message += (
+                        f"- Code Preview:\n```python\n{callable_meta['source_preview']}\n```\n"
+                    )
+                message += "\n"
 
             exit_code = main_script_result.get("exit_code", "N/A")
             message += f"**Exit Code:** {exit_code}\n\n"

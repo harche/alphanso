@@ -21,6 +21,7 @@ class MainScriptResult(TypedDict):
         stderr: Captured stderr (last N chars, truncated)
         exit_code: Process exit code
         duration: Time taken to execute in seconds
+        metadata: Additional metadata (e.g., callable info: name, signature, docstring)
     """
 
     command: str
@@ -29,6 +30,7 @@ class MainScriptResult(TypedDict):
     stderr: str
     exit_code: int | None
     duration: float
+    metadata: dict[str, Any]
 
 
 class ValidationResult(TypedDict):

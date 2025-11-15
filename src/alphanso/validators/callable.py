@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from alphanso.graph.state import ValidationResult
-from alphanso.utils.callable import run_callable_async
+from alphanso.utils.callable import get_callable_metadata, run_callable_async
 from alphanso.validators.base import Validator
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,9 @@ class CallableValidator(Validator):
         """
         logger.info(f"Running callable validator: {self.name}")
 
+        # Get callable metadata for AI context
+        callable_metadata = get_callable_metadata(self.callable)
+
         # Execute callable with timeout and error handling
         result = await run_callable_async(
             self.callable,
@@ -74,5 +77,5 @@ class CallableValidator(Validator):
             exit_code=result["exit_code"],
             duration=result["duration"],
             timestamp=0.0,  # Will be set by Validator.arun()
-            metadata={},
+            metadata={"callable": callable_metadata},
         )
