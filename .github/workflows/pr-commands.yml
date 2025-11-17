@@ -16,7 +16,7 @@ jobs:
     if: github.event.issue.pull_request != null
     steps:
       - name: Check for commands
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const comment = context.payload.comment.body.trim();
